@@ -33,6 +33,7 @@ impl fmt::Display for Reg16 {
 
 #[derive(Copy, Clone)]
 enum Instruction {
+    Nop(),
     LD(Reg8, Reg8),
     LDrn(Reg8, u8),
     LDr8r16(Reg8, Reg16),
@@ -48,6 +49,7 @@ enum Instruction {
 impl fmt::Display for Instruction {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Instruction::Nop() => write!(f, "NOP"),
             Instruction::LD(r1, r2) => write!(f, "LD {},{}", r1, r2),
             Instruction::LDrn(r, n) => write!(f, "LDrn {},{}", r, n),
             Instruction::LDr8r16(r8, r16) => write!(f, "LD {},({})", r8, r16),
@@ -69,6 +71,8 @@ fn load_n16(program: &[u8], pc: u16) -> u16 {
 fn load_instruction(program: &[u8], pc: u16) -> Instruction {
     let opcode = program[pc as usize];
     return match opcode {
+        0x00 => Instruction::Nop(),
+
         0x36 => Instruction::LDHLn(program[(pc + 1) as usize]),
 
         0x02 => Instruction::LDr16r8(Reg16::BC, Reg8::A),
@@ -241,6 +245,7 @@ impl Cpu {
 
     fn execute(&mut self, inst: &Instruction) {
         match inst {
+            Instruction::Nop() => (),
             Instruction::LD(r1, r2) => {
                 self.set_reg8(*r1, self.reg8(*r2));
             }
