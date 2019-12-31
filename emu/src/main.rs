@@ -40,6 +40,7 @@ enum Instruction {
     LDHLn(u8),
     LDr8n16(Reg8, u16),
     LDn16r8(u16, Reg8),
+    LDr16n16(Reg16, u16),
 
     Unimplemented(u8),
 }
@@ -54,6 +55,8 @@ impl fmt::Display for Instruction {
             Instruction::LDHLn(n) => write!(f, "LD (HL),{}", n),
             Instruction::LDr8n16(r8, n16) => write!(f, "LD {},({})", r8, n16),
             Instruction::LDn16r8(n16, r8) => write!(f, "LD ({}),{}", n16, r8),
+            Instruction::LDr16n16(r16, n16) => write!(f, "LD {},{}", r16, n16),
+
             Instruction::Unimplemented(op) => write!(f, "unimplemented {}", op),
         }
     }
@@ -76,6 +79,11 @@ fn load_instruction(program: &[u8], pc: u16) -> Instruction {
 
         0xEA => Instruction::LDn16r8(load_n16(program, pc + 1), Reg8::A),
         0xFA => Instruction::LDr8n16(Reg8::A, load_n16(program, pc + 1)),
+
+        0x01 => Instruction::LDr16n16(Reg16::BC, load_n16(program, pc + 1)),
+        0x11 => Instruction::LDr16n16(Reg16::DE, load_n16(program, pc + 1)),
+        0x21 => Instruction::LDr16n16(Reg16::HL, load_n16(program, pc + 1)),
+        0x31 => Instruction::LDr16n16(Reg16::SP, load_n16(program, pc + 1)),
 
         0x06 => Instruction::LDrn(Reg8::B, program[(pc + 1) as usize]),
         0x0E => Instruction::LDrn(Reg8::C, program[(pc + 1) as usize]),
@@ -261,6 +269,9 @@ impl Cpu {
                 let value = self.reg8(*r8);
                 self.store8(*n16, value);
             }
+            Instruction::LDr16n16(r16, n16) => self.set_reg16(*r16, *n16),
+
+            // not implemented
             Instruction::Unimplemented(op) => (),
         }
     }
