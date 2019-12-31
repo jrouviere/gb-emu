@@ -33,69 +33,114 @@ impl fmt::Display for Reg16 {
 
 #[derive(Copy, Clone)]
 enum Instruction {
+    Invalid(),
     LD(Reg8, Reg8),
+    LDrn(Reg8, u8),
+    LDr8r16(Reg8, Reg16),
+    LDr16r8(Reg16, Reg8),
+    LDHLn(u8),
 }
 
 impl fmt::Display for Instruction {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Instruction::LD(r1, r2) => write!(f, "LD {}, {}", r1, r2),
+            Instruction::Invalid() => write!(f, "Unexpected"),
+            Instruction::LD(r1, r2) => write!(f, "LD {},{}", r1, r2),
+            Instruction::LDrn(r, n) => write!(f, "LDrn {},{}", r, n),
+            Instruction::LDr8r16(r8, r16) => write!(f, "LD {},({})", r8, r16),
+            Instruction::LDr16r8(r16, r8) => write!(f, "LD ({}),{}", r16, r8),
+            Instruction::LDHLn(n) => write!(f, "LD (HL),{}", n),
         }
     }
 }
 
-fn gen_opcode_map() -> Vec<(u8, Instruction)> {
-    return vec![
-        (0x40, Instruction::LD(Reg8::B, Reg8::B)),
-        (0x41, Instruction::LD(Reg8::B, Reg8::C)),
-        (0x42, Instruction::LD(Reg8::B, Reg8::D)),
-        (0x43, Instruction::LD(Reg8::B, Reg8::E)),
-        (0x44, Instruction::LD(Reg8::B, Reg8::H)),
-        (0x45, Instruction::LD(Reg8::B, Reg8::L)),
-        (0x47, Instruction::LD(Reg8::B, Reg8::A)),
-        (0x48, Instruction::LD(Reg8::C, Reg8::B)),
-        (0x49, Instruction::LD(Reg8::C, Reg8::C)),
-        (0x4A, Instruction::LD(Reg8::C, Reg8::D)),
-        (0x4B, Instruction::LD(Reg8::C, Reg8::E)),
-        (0x4C, Instruction::LD(Reg8::C, Reg8::H)),
-        (0x4D, Instruction::LD(Reg8::C, Reg8::L)),
-        (0x4F, Instruction::LD(Reg8::C, Reg8::A)),
-        (0x50, Instruction::LD(Reg8::D, Reg8::B)),
-        (0x51, Instruction::LD(Reg8::D, Reg8::C)),
-        (0x52, Instruction::LD(Reg8::D, Reg8::D)),
-        (0x53, Instruction::LD(Reg8::D, Reg8::E)),
-        (0x54, Instruction::LD(Reg8::D, Reg8::H)),
-        (0x55, Instruction::LD(Reg8::D, Reg8::L)),
-        (0x57, Instruction::LD(Reg8::D, Reg8::A)),
-        (0x58, Instruction::LD(Reg8::E, Reg8::B)),
-        (0x59, Instruction::LD(Reg8::E, Reg8::C)),
-        (0x5A, Instruction::LD(Reg8::E, Reg8::D)),
-        (0x5B, Instruction::LD(Reg8::E, Reg8::E)),
-        (0x5C, Instruction::LD(Reg8::E, Reg8::H)),
-        (0x5D, Instruction::LD(Reg8::E, Reg8::L)),
-        (0x5F, Instruction::LD(Reg8::E, Reg8::A)),
-        (0x60, Instruction::LD(Reg8::H, Reg8::B)),
-        (0x61, Instruction::LD(Reg8::H, Reg8::C)),
-        (0x62, Instruction::LD(Reg8::H, Reg8::D)),
-        (0x63, Instruction::LD(Reg8::H, Reg8::E)),
-        (0x64, Instruction::LD(Reg8::H, Reg8::H)),
-        (0x65, Instruction::LD(Reg8::H, Reg8::L)),
-        (0x67, Instruction::LD(Reg8::H, Reg8::A)),
-        (0x68, Instruction::LD(Reg8::L, Reg8::B)),
-        (0x69, Instruction::LD(Reg8::L, Reg8::C)),
-        (0x6A, Instruction::LD(Reg8::L, Reg8::D)),
-        (0x6B, Instruction::LD(Reg8::L, Reg8::E)),
-        (0x6C, Instruction::LD(Reg8::L, Reg8::H)),
-        (0x6D, Instruction::LD(Reg8::L, Reg8::L)),
-        (0x6F, Instruction::LD(Reg8::H, Reg8::A)),
-        (0x78, Instruction::LD(Reg8::A, Reg8::B)),
-        (0x79, Instruction::LD(Reg8::A, Reg8::C)),
-        (0x7A, Instruction::LD(Reg8::A, Reg8::D)),
-        (0x7B, Instruction::LD(Reg8::A, Reg8::E)),
-        (0x7C, Instruction::LD(Reg8::A, Reg8::H)),
-        (0x7D, Instruction::LD(Reg8::A, Reg8::L)),
-        (0x7F, Instruction::LD(Reg8::A, Reg8::A)),
-    ];
+fn load_instruction(program: &[u8], pc: u16) -> Instruction {
+    let opcode = program[pc as usize];
+    return match opcode {
+        0x36 => Instruction::LDHLn(program[(pc + 1) as usize]),
+
+        0x02 => Instruction::LDr16r8(Reg16::BC, Reg8::A),
+        0x12 => Instruction::LDr16r8(Reg16::DE, Reg8::A),
+
+        0x0A => Instruction::LDr8r16(Reg8::A, Reg16::BC),
+        0x1A => Instruction::LDr8r16(Reg8::A, Reg16::DE),
+
+        0x06 => Instruction::LDrn(Reg8::B, program[(pc + 1) as usize]),
+        0x0E => Instruction::LDrn(Reg8::C, program[(pc + 1) as usize]),
+        0x16 => Instruction::LDrn(Reg8::D, program[(pc + 1) as usize]),
+        0x1E => Instruction::LDrn(Reg8::E, program[(pc + 1) as usize]),
+        0x26 => Instruction::LDrn(Reg8::H, program[(pc + 1) as usize]),
+        0x2E => Instruction::LDrn(Reg8::L, program[(pc + 1) as usize]),
+        0x3E => Instruction::LDrn(Reg8::A, program[(pc + 1) as usize]),
+
+        0x46 => Instruction::LDr8r16(Reg8::B, Reg16::HL),
+        0x4E => Instruction::LDr8r16(Reg8::C, Reg16::HL),
+        0x56 => Instruction::LDr8r16(Reg8::D, Reg16::HL),
+        0x5E => Instruction::LDr8r16(Reg8::E, Reg16::HL),
+        0x66 => Instruction::LDr8r16(Reg8::H, Reg16::HL),
+        0x6E => Instruction::LDr8r16(Reg8::L, Reg16::HL),
+        0x7E => Instruction::LDr8r16(Reg8::A, Reg16::HL),
+
+        0x70 => Instruction::LDr16r8(Reg16::HL, Reg8::B),
+        0x71 => Instruction::LDr16r8(Reg16::HL, Reg8::C),
+        0x72 => Instruction::LDr16r8(Reg16::HL, Reg8::D),
+        0x73 => Instruction::LDr16r8(Reg16::HL, Reg8::E),
+        0x74 => Instruction::LDr16r8(Reg16::HL, Reg8::H),
+        0x75 => Instruction::LDr16r8(Reg16::HL, Reg8::L),
+        0x77 => Instruction::LDr16r8(Reg16::HL, Reg8::A),
+
+        0x40 => Instruction::LD(Reg8::B, Reg8::B),
+        0x41 => Instruction::LD(Reg8::B, Reg8::C),
+        0x42 => Instruction::LD(Reg8::B, Reg8::D),
+        0x43 => Instruction::LD(Reg8::B, Reg8::E),
+        0x44 => Instruction::LD(Reg8::B, Reg8::H),
+        0x45 => Instruction::LD(Reg8::B, Reg8::L),
+        0x47 => Instruction::LD(Reg8::B, Reg8::A),
+        0x48 => Instruction::LD(Reg8::C, Reg8::B),
+        0x49 => Instruction::LD(Reg8::C, Reg8::C),
+        0x4A => Instruction::LD(Reg8::C, Reg8::D),
+        0x4B => Instruction::LD(Reg8::C, Reg8::E),
+        0x4C => Instruction::LD(Reg8::C, Reg8::H),
+        0x4D => Instruction::LD(Reg8::C, Reg8::L),
+        0x4F => Instruction::LD(Reg8::C, Reg8::A),
+        0x50 => Instruction::LD(Reg8::D, Reg8::B),
+        0x51 => Instruction::LD(Reg8::D, Reg8::C),
+        0x52 => Instruction::LD(Reg8::D, Reg8::D),
+        0x53 => Instruction::LD(Reg8::D, Reg8::E),
+        0x54 => Instruction::LD(Reg8::D, Reg8::H),
+        0x55 => Instruction::LD(Reg8::D, Reg8::L),
+        0x57 => Instruction::LD(Reg8::D, Reg8::A),
+        0x58 => Instruction::LD(Reg8::E, Reg8::B),
+        0x59 => Instruction::LD(Reg8::E, Reg8::C),
+        0x5A => Instruction::LD(Reg8::E, Reg8::D),
+        0x5B => Instruction::LD(Reg8::E, Reg8::E),
+        0x5C => Instruction::LD(Reg8::E, Reg8::H),
+        0x5D => Instruction::LD(Reg8::E, Reg8::L),
+        0x5F => Instruction::LD(Reg8::E, Reg8::A),
+        0x60 => Instruction::LD(Reg8::H, Reg8::B),
+        0x61 => Instruction::LD(Reg8::H, Reg8::C),
+        0x62 => Instruction::LD(Reg8::H, Reg8::D),
+        0x63 => Instruction::LD(Reg8::H, Reg8::E),
+        0x64 => Instruction::LD(Reg8::H, Reg8::H),
+        0x65 => Instruction::LD(Reg8::H, Reg8::L),
+        0x67 => Instruction::LD(Reg8::H, Reg8::A),
+        0x68 => Instruction::LD(Reg8::L, Reg8::B),
+        0x69 => Instruction::LD(Reg8::L, Reg8::C),
+        0x6A => Instruction::LD(Reg8::L, Reg8::D),
+        0x6B => Instruction::LD(Reg8::L, Reg8::E),
+        0x6C => Instruction::LD(Reg8::L, Reg8::H),
+        0x6D => Instruction::LD(Reg8::L, Reg8::L),
+        0x6F => Instruction::LD(Reg8::H, Reg8::A),
+        0x78 => Instruction::LD(Reg8::A, Reg8::B),
+        0x79 => Instruction::LD(Reg8::A, Reg8::C),
+        0x7A => Instruction::LD(Reg8::A, Reg8::D),
+        0x7B => Instruction::LD(Reg8::A, Reg8::E),
+        0x7C => Instruction::LD(Reg8::A, Reg8::H),
+        0x7D => Instruction::LD(Reg8::A, Reg8::L),
+        0x7F => Instruction::LD(Reg8::A, Reg8::A),
+
+        _ => Instruction::Invalid(),
+    };
 }
 
 struct Cpu {
@@ -166,10 +211,36 @@ impl Cpu {
         }
     }
 
+    fn load8(&self, addr: u16) -> u8 {
+        unimplemented!()
+    }
+
+    fn store8(&self, addr: u16, val: u8) {
+        unimplemented!();
+    }
+
     fn execute(&mut self, inst: &Instruction) {
         match inst {
+            Instruction::Invalid() => (),
             Instruction::LD(r1, r2) => {
                 self.set_reg8(*r1, self.reg8(*r2));
+            }
+            Instruction::LDrn(r, v) => {
+                self.set_reg8(*r, *v);
+            }
+            Instruction::LDr8r16(r8, r16) => {
+                let addr = self.reg16(*r16);
+                let value = self.load8(addr);
+                self.set_reg8(*r8, value);
+            }
+            Instruction::LDr16r8(r16, r8) => {
+                let addr = self.reg16(*r16);
+                let value = self.reg8(*r8);
+                self.store8(addr, value);
+            }
+            Instruction::LDHLn(n) => {
+                let hl = self.reg16(Reg16::HL);
+                self.store8(hl, *n);
             }
         }
     }
