@@ -2,14 +2,14 @@ use std::fmt;
 
 #[derive(Copy, Clone, Debug)]
 enum Reg8 {
-    A, //0x07
-    F, //0x06
-    L, //0x05
-    H, //0x04
-    E, //0x03
-    D, //0x02
-    C, //0x01
-    B, //0x00
+    A,
+    B,
+    C,
+    D,
+    E,
+    F,
+    H,
+    L,
 }
 impl fmt::Display for Reg8 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -33,25 +33,34 @@ impl fmt::Display for Reg16 {
 
 #[derive(Copy, Clone)]
 enum Instruction {
-    Invalid(),
     LD(Reg8, Reg8),
     LDrn(Reg8, u8),
     LDr8r16(Reg8, Reg16),
     LDr16r8(Reg16, Reg8),
     LDHLn(u8),
+    LDr8n16(Reg8, u16),
+    LDn16r8(u16, Reg8),
+
+    Unimplemented(u8),
 }
 
 impl fmt::Display for Instruction {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Instruction::Invalid() => write!(f, "Unexpected"),
             Instruction::LD(r1, r2) => write!(f, "LD {},{}", r1, r2),
             Instruction::LDrn(r, n) => write!(f, "LDrn {},{}", r, n),
             Instruction::LDr8r16(r8, r16) => write!(f, "LD {},({})", r8, r16),
             Instruction::LDr16r8(r16, r8) => write!(f, "LD ({}),{}", r16, r8),
             Instruction::LDHLn(n) => write!(f, "LD (HL),{}", n),
+            Instruction::LDr8n16(r8, n16) => write!(f, "LD {},({})", r8, n16),
+            Instruction::LDn16r8(n16, r8) => write!(f, "LD ({}),{}", n16, r8),
+            Instruction::Unimplemented(op) => write!(f, "unimplemented {}", op),
         }
     }
+}
+
+fn load_n16(program: &[u8], pc: u16) -> u16 {
+    (program[(pc + 1) as usize] as u16) << 8 | program[(pc as usize)] as u16
 }
 
 fn load_instruction(program: &[u8], pc: u16) -> Instruction {
@@ -64,6 +73,9 @@ fn load_instruction(program: &[u8], pc: u16) -> Instruction {
 
         0x0A => Instruction::LDr8r16(Reg8::A, Reg16::BC),
         0x1A => Instruction::LDr8r16(Reg8::A, Reg16::DE),
+
+        0xEA => Instruction::LDn16r8(load_n16(program, pc + 1), Reg8::A),
+        0xFA => Instruction::LDr8n16(Reg8::A, load_n16(program, pc + 1)),
 
         0x06 => Instruction::LDrn(Reg8::B, program[(pc + 1) as usize]),
         0x0E => Instruction::LDrn(Reg8::C, program[(pc + 1) as usize]),
@@ -139,7 +151,7 @@ fn load_instruction(program: &[u8], pc: u16) -> Instruction {
         0x7D => Instruction::LD(Reg8::A, Reg8::L),
         0x7F => Instruction::LD(Reg8::A, Reg8::A),
 
-        _ => Instruction::Invalid(),
+        _ => Instruction::Unimplemented(opcode),
     };
 }
 
@@ -221,7 +233,6 @@ impl Cpu {
 
     fn execute(&mut self, inst: &Instruction) {
         match inst {
-            Instruction::Invalid() => (),
             Instruction::LD(r1, r2) => {
                 self.set_reg8(*r1, self.reg8(*r2));
             }
@@ -242,6 +253,15 @@ impl Cpu {
                 let hl = self.reg16(Reg16::HL);
                 self.store8(hl, *n);
             }
+            Instruction::LDr8n16(r8, n16) => {
+                let value = self.load8(*n16);
+                self.set_reg8(*r8, value);
+            }
+            Instruction::LDn16r8(n16, r8) => {
+                let value = self.reg8(*r8);
+                self.store8(*n16, value);
+            }
+            Instruction::Unimplemented(op) => (),
         }
     }
 }
