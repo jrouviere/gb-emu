@@ -1,4 +1,6 @@
+use std::env;
 use std::fmt;
+use std::fs;
 
 #[derive(Copy, Clone, Debug)]
 enum Reg8 {
@@ -167,7 +169,86 @@ fn load_instruction(program: &[u8], pc: u16) -> Instruction {
     };
 }
 
+struct Bus {
+    // 0x0000-0x3FFF: bank 0
+    // 0x4000-0x7FFF: bank N
+    rom_data: Vec<u8>,
+
+    //0x8000-0x97FF: character map
+    char_ram: [u8; 0x1800],
+
+    //0x9800-0x9BFF: background map 1
+    bg_map1: [u8; 0x400],
+    //0x9C00-0x9FFF: background map 2
+    bg_map2: [u8; 0x400],
+
+    // 0xA000-0xBFFF: external/cartdridge ram
+    ext_ram: [u8; 0x2000],
+    // 0xC000-0xDFFF:
+    int_ram: [u8; 0x2000],
+    // 0xE000-0xFDFF: Reserved
+    // -
+    // 0xFE00-0xFE9F: Object Attribute Memory (OAM)
+    oam: [u8; 0xA0],
+    // 0xFEA0-0xFEFF - Reserved
+    // -
+    // 0xFF00-0xFF7F - I/O
+    // -
+    // 0xFF80-0xFFFE - High RAM Area
+    high_ram: [u8; 0x7F],
+    // 0xFFFF Interrupt Enable
+    // -
+}
+
+fn build_bus(rom_data: Vec<u8>) -> Bus {
+    assert!(rom_data.len() >= 0x8000, "rom data incomplete");
+    return Bus {
+        rom_data: rom_data,
+        char_ram: [0; 0x1800],
+        bg_map1: [0; 0x400],
+        bg_map2: [0; 0x400],
+        ext_ram: [0; 0x2000],
+        int_ram: [0; 0x2000],
+        oam: [0; 0xA0],
+        high_ram: [0; 0x7F],
+    };
+}
+
+impl Bus {
+    fn load8(&self, addr: u16) -> u8 {
+        return match addr {
+            0x0000..=0x3FFF => self.rom_data[addr as usize],
+            0x4000..=0x7FFF => self.rom_data[addr as usize], //TODO: handle memory bank
+            0x8000..=0x97FF => self.char_ram[(addr - 0x8000) as usize],
+            0x9800..=0x9BFF => self.bg_map1[(addr - 0x9800) as usize],
+            0x9C00..=0x9FFF => self.bg_map2[(addr - 0x9C00) as usize],
+            0xA000..=0xBFFF => self.ext_ram[(addr - 0xA000) as usize],
+            0xC000..=0xDFFF => self.int_ram[(addr - 0xC000) as usize],
+            0xFE00..=0xFE9F => self.oam[(addr - 0xFE00) as usize],
+            0xFF80..=0xFFFE => self.high_ram[(addr - 0xFF80) as usize],
+
+            _ => unimplemented!(),
+        };
+    }
+    fn store8(&mut self, addr: u16, val: u8) {
+        match addr {
+            0x0000..=0x3FFF => (),
+            0x4000..=0x7FFF => (),
+            0x8000..=0x97FF => self.char_ram[(addr - 0x8000) as usize] = val,
+            0x9800..=0x9BFF => self.bg_map1[(addr - 0x9800) as usize] = val,
+            0x9C00..=0x9FFF => self.bg_map2[(addr - 0x9C00) as usize] = val,
+            0xA000..=0xBFFF => self.ext_ram[(addr - 0xA000) as usize] = val,
+            0xC000..=0xDFFF => self.int_ram[(addr - 0xC000) as usize] = val,
+            0xFE00..=0xFE9F => self.oam[(addr - 0xFE00) as usize] = val,
+            0xFF80..=0xFFFE => self.high_ram[(addr - 0xFF80) as usize] = val,
+            _ => unimplemented!(),
+        }
+    }
+}
+
 struct Cpu {
+    bus: Bus,
+
     reg_pc: u16,
     reg_sp: u16,
     reg_a: u8,
@@ -236,11 +317,10 @@ impl Cpu {
     }
 
     fn load8(&self, addr: u16) -> u8 {
-        unimplemented!()
+        self.bus.load8(addr)
     }
-
-    fn store8(&self, addr: u16, val: u8) {
-        unimplemented!();
+    fn store8(&mut self, addr: u16, val: u8) {
+        self.bus.store8(addr, val)
     }
 
     fn execute(&mut self, inst: &Instruction) {
@@ -277,13 +357,14 @@ impl Cpu {
             Instruction::LDr16n16(r16, n16) => self.set_reg16(*r16, *n16),
 
             // not implemented
-            Instruction::Unimplemented(op) => (),
+            Instruction::Unimplemented(_op) => (),
         }
     }
 }
 
-fn build_cpu() -> Cpu {
+fn build_cpu(bus: Bus) -> Cpu {
     return Cpu {
+        bus,
         reg_pc: 0,
         reg_sp: 0,
         reg_a: 0,
@@ -298,7 +379,14 @@ fn build_cpu() -> Cpu {
 }
 
 fn main() {
-    let mut cpu = build_cpu();
+    let filename = env::args()
+        .nth(1)
+        .expect("Provide rom filename as an argument");
+
+    let rom_data = fs::read(filename).expect("Cannot read file");
+
+    let mut bus = build_bus(rom_data);
+    let mut cpu = build_cpu(bus);
 
     cpu.set_reg8(Reg8::A, 33);
     cpu.execute(&Instruction::LD(Reg8::D, Reg8::A));
@@ -308,6 +396,13 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn init_cpu_wo_rom() -> Cpu {
+        let rom_data = vec![0; 0x8000];
+        let mut bus = build_bus(rom_data);
+        return build_cpu(bus);
+    }
+
     #[test]
     fn test_reg8() {
         for r in vec![
@@ -320,7 +415,7 @@ mod tests {
             Reg8::C,
             Reg8::B,
         ] {
-            let mut cpu = build_cpu();
+            let mut cpu = init_cpu_wo_rom();
             cpu.set_reg8(r, 33);
             assert_eq!(cpu.reg8(r), 33);
         }
@@ -328,7 +423,7 @@ mod tests {
     #[test]
     fn test_reg16() {
         for r in vec![Reg16::HL, Reg16::BC, Reg16::DE, Reg16::SP, Reg16::PC] {
-            let mut cpu = build_cpu();
+            let mut cpu = init_cpu_wo_rom();
             cpu.set_reg16(r, 3342);
             assert_eq!(cpu.reg16(r), 3342);
         }
@@ -336,7 +431,7 @@ mod tests {
 
     #[test]
     fn test_exec_ld() {
-        let mut cpu = build_cpu();
+        let mut cpu = init_cpu_wo_rom();
         cpu.set_reg8(Reg8::A, 42);
         cpu.execute(&Instruction::LD(Reg8::D, Reg8::A));
         assert_eq!(cpu.reg8(Reg8::A), 42);
