@@ -121,7 +121,7 @@ impl Bus {
             0xC000..=0xDFFF => self.int_ram[(addr - 0xC000) as usize],
             0xE000..=0xFDFF => self.int_ram[(addr - 0xE000) as usize], // mirror of int ram
             0xFE00..=0xFE9F => self.oam[(addr - 0xFE00) as usize],
-            0xFEA0..=0xFF00 => 0, //reserved,
+            0xFEA0..=0xFEFF => 0, //reserved,
             0xFF00..=0xFF7F => 0, //TODO: I/O Registers
             0xFF80..=0xFFFE => self.high_ram[(addr - 0xFF80) as usize],
             0xFFFF => 0, //TODO: interrupt enable
@@ -138,7 +138,7 @@ impl Bus {
             0xC000..=0xDFFF => self.int_ram[(addr - 0xC000) as usize] = val,
             0xE000..=0xFDFF => self.int_ram[(addr - 0xE000) as usize] = val, // mirror of int ram
             0xFE00..=0xFE9F => self.oam[(addr - 0xFE00) as usize] = val,
-            0xFEA0..=0xFF00 => (), //reserved
+            0xFEA0..=0xFEFF => (), //reserved
             0xFF00..=0xFF7F => (), //TODO: I/O Registers
             0xFF80..=0xFFFE => self.high_ram[(addr - 0xFF80) as usize] = val,
             0xFFFF => (), //TODO: interrupt enable
