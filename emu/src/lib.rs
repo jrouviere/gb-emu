@@ -146,109 +146,6 @@ impl Bus {
     }
 }
 
-fn load_n16(bus: &Bus, pc: u16) -> u16 {
-    return (bus.load8(pc + 1) as u16) << 8 | (bus.load8(pc) as u16);
-}
-
-fn load_instruction(bus: &Bus, pc: u16) -> Instruction {
-    let opcode = bus.load8(pc);
-    return match opcode {
-        0x00 => Instruction::Nop(),
-
-        0x36 => Instruction::LDHLn(bus.load8(pc + 1)),
-
-        0x02 => Instruction::LDr16r8(Reg16::BC, Reg8::A),
-        0x12 => Instruction::LDr16r8(Reg16::DE, Reg8::A),
-
-        0x0A => Instruction::LDr8r16(Reg8::A, Reg16::BC),
-        0x1A => Instruction::LDr8r16(Reg8::A, Reg16::DE),
-
-        0xEA => Instruction::LDn16r8(load_n16(bus, pc + 1), Reg8::A),
-        0xFA => Instruction::LDr8n16(Reg8::A, load_n16(bus, pc + 1)),
-
-        0x01 => Instruction::LDr16n16(Reg16::BC, load_n16(bus, pc + 1)),
-        0x11 => Instruction::LDr16n16(Reg16::DE, load_n16(bus, pc + 1)),
-        0x21 => Instruction::LDr16n16(Reg16::HL, load_n16(bus, pc + 1)),
-        0x31 => Instruction::LDr16n16(Reg16::SP, load_n16(bus, pc + 1)),
-
-        0x06 => Instruction::LDrn(Reg8::B, bus.load8(pc + 1)),
-        0x0E => Instruction::LDrn(Reg8::C, bus.load8(pc + 1)),
-        0x16 => Instruction::LDrn(Reg8::D, bus.load8(pc + 1)),
-        0x1E => Instruction::LDrn(Reg8::E, bus.load8(pc + 1)),
-        0x26 => Instruction::LDrn(Reg8::H, bus.load8(pc + 1)),
-        0x2E => Instruction::LDrn(Reg8::L, bus.load8(pc + 1)),
-        0x3E => Instruction::LDrn(Reg8::A, bus.load8(pc + 1)),
-
-        0x46 => Instruction::LDr8r16(Reg8::B, Reg16::HL),
-        0x4E => Instruction::LDr8r16(Reg8::C, Reg16::HL),
-        0x56 => Instruction::LDr8r16(Reg8::D, Reg16::HL),
-        0x5E => Instruction::LDr8r16(Reg8::E, Reg16::HL),
-        0x66 => Instruction::LDr8r16(Reg8::H, Reg16::HL),
-        0x6E => Instruction::LDr8r16(Reg8::L, Reg16::HL),
-        0x7E => Instruction::LDr8r16(Reg8::A, Reg16::HL),
-
-        0x70 => Instruction::LDr16r8(Reg16::HL, Reg8::B),
-        0x71 => Instruction::LDr16r8(Reg16::HL, Reg8::C),
-        0x72 => Instruction::LDr16r8(Reg16::HL, Reg8::D),
-        0x73 => Instruction::LDr16r8(Reg16::HL, Reg8::E),
-        0x74 => Instruction::LDr16r8(Reg16::HL, Reg8::H),
-        0x75 => Instruction::LDr16r8(Reg16::HL, Reg8::L),
-        0x77 => Instruction::LDr16r8(Reg16::HL, Reg8::A),
-
-        0x40 => Instruction::LD(Reg8::B, Reg8::B),
-        0x41 => Instruction::LD(Reg8::B, Reg8::C),
-        0x42 => Instruction::LD(Reg8::B, Reg8::D),
-        0x43 => Instruction::LD(Reg8::B, Reg8::E),
-        0x44 => Instruction::LD(Reg8::B, Reg8::H),
-        0x45 => Instruction::LD(Reg8::B, Reg8::L),
-        0x47 => Instruction::LD(Reg8::B, Reg8::A),
-        0x48 => Instruction::LD(Reg8::C, Reg8::B),
-        0x49 => Instruction::LD(Reg8::C, Reg8::C),
-        0x4A => Instruction::LD(Reg8::C, Reg8::D),
-        0x4B => Instruction::LD(Reg8::C, Reg8::E),
-        0x4C => Instruction::LD(Reg8::C, Reg8::H),
-        0x4D => Instruction::LD(Reg8::C, Reg8::L),
-        0x4F => Instruction::LD(Reg8::C, Reg8::A),
-        0x50 => Instruction::LD(Reg8::D, Reg8::B),
-        0x51 => Instruction::LD(Reg8::D, Reg8::C),
-        0x52 => Instruction::LD(Reg8::D, Reg8::D),
-        0x53 => Instruction::LD(Reg8::D, Reg8::E),
-        0x54 => Instruction::LD(Reg8::D, Reg8::H),
-        0x55 => Instruction::LD(Reg8::D, Reg8::L),
-        0x57 => Instruction::LD(Reg8::D, Reg8::A),
-        0x58 => Instruction::LD(Reg8::E, Reg8::B),
-        0x59 => Instruction::LD(Reg8::E, Reg8::C),
-        0x5A => Instruction::LD(Reg8::E, Reg8::D),
-        0x5B => Instruction::LD(Reg8::E, Reg8::E),
-        0x5C => Instruction::LD(Reg8::E, Reg8::H),
-        0x5D => Instruction::LD(Reg8::E, Reg8::L),
-        0x5F => Instruction::LD(Reg8::E, Reg8::A),
-        0x60 => Instruction::LD(Reg8::H, Reg8::B),
-        0x61 => Instruction::LD(Reg8::H, Reg8::C),
-        0x62 => Instruction::LD(Reg8::H, Reg8::D),
-        0x63 => Instruction::LD(Reg8::H, Reg8::E),
-        0x64 => Instruction::LD(Reg8::H, Reg8::H),
-        0x65 => Instruction::LD(Reg8::H, Reg8::L),
-        0x67 => Instruction::LD(Reg8::H, Reg8::A),
-        0x68 => Instruction::LD(Reg8::L, Reg8::B),
-        0x69 => Instruction::LD(Reg8::L, Reg8::C),
-        0x6A => Instruction::LD(Reg8::L, Reg8::D),
-        0x6B => Instruction::LD(Reg8::L, Reg8::E),
-        0x6C => Instruction::LD(Reg8::L, Reg8::H),
-        0x6D => Instruction::LD(Reg8::L, Reg8::L),
-        0x6F => Instruction::LD(Reg8::H, Reg8::A),
-        0x78 => Instruction::LD(Reg8::A, Reg8::B),
-        0x79 => Instruction::LD(Reg8::A, Reg8::C),
-        0x7A => Instruction::LD(Reg8::A, Reg8::D),
-        0x7B => Instruction::LD(Reg8::A, Reg8::E),
-        0x7C => Instruction::LD(Reg8::A, Reg8::H),
-        0x7D => Instruction::LD(Reg8::A, Reg8::L),
-        0x7F => Instruction::LD(Reg8::A, Reg8::A),
-
-        _ => Instruction::Unimplemented(opcode),
-    };
-}
-
 pub struct Cpu {
     bus: Bus,
 
@@ -326,65 +223,164 @@ impl Cpu {
         self.bus.store8(addr, val)
     }
 
-    fn incr_pc(&mut self, incr: u16) {
-        self.reg_pc += incr;
+    fn load_pc_inc(&mut self) -> u8 {
+        let data = self.load8(self.reg_pc);
+        self.reg_pc += 1;
+        data
     }
 
+    fn load_pc_n16(&mut self) -> u16 {
+        let lsb = self.load_pc_inc() as u16;
+        let msb = self.load_pc_inc() as u16;
+        msb << 8 | lsb
+    }
+
+    fn load_instruction(&mut self) -> Instruction {
+        let opcode = self.load_pc_inc();
+        return match opcode {
+            0x00 => Instruction::Nop(),
+
+            0x36 => Instruction::LDHLn(self.load_pc_inc()),
+
+            0x02 => Instruction::LDr16r8(Reg16::BC, Reg8::A),
+            0x12 => Instruction::LDr16r8(Reg16::DE, Reg8::A),
+
+            0x0A => Instruction::LDr8r16(Reg8::A, Reg16::BC),
+            0x1A => Instruction::LDr8r16(Reg8::A, Reg16::DE),
+
+            0xEA => Instruction::LDn16r8(self.load_pc_n16(), Reg8::A),
+            0xFA => Instruction::LDr8n16(Reg8::A, self.load_pc_n16()),
+
+            0x01 => Instruction::LDr16n16(Reg16::BC, self.load_pc_n16()),
+            0x11 => Instruction::LDr16n16(Reg16::DE, self.load_pc_n16()),
+            0x21 => Instruction::LDr16n16(Reg16::HL, self.load_pc_n16()),
+            0x31 => Instruction::LDr16n16(Reg16::SP, self.load_pc_n16()),
+
+            0x06 => Instruction::LDrn(Reg8::B, self.load_pc_inc()),
+            0x0E => Instruction::LDrn(Reg8::C, self.load_pc_inc()),
+            0x16 => Instruction::LDrn(Reg8::D, self.load_pc_inc()),
+            0x1E => Instruction::LDrn(Reg8::E, self.load_pc_inc()),
+            0x26 => Instruction::LDrn(Reg8::H, self.load_pc_inc()),
+            0x2E => Instruction::LDrn(Reg8::L, self.load_pc_inc()),
+            0x3E => Instruction::LDrn(Reg8::A, self.load_pc_inc()),
+
+            0x46 => Instruction::LDr8r16(Reg8::B, Reg16::HL),
+            0x4E => Instruction::LDr8r16(Reg8::C, Reg16::HL),
+            0x56 => Instruction::LDr8r16(Reg8::D, Reg16::HL),
+            0x5E => Instruction::LDr8r16(Reg8::E, Reg16::HL),
+            0x66 => Instruction::LDr8r16(Reg8::H, Reg16::HL),
+            0x6E => Instruction::LDr8r16(Reg8::L, Reg16::HL),
+            0x7E => Instruction::LDr8r16(Reg8::A, Reg16::HL),
+
+            0x70 => Instruction::LDr16r8(Reg16::HL, Reg8::B),
+            0x71 => Instruction::LDr16r8(Reg16::HL, Reg8::C),
+            0x72 => Instruction::LDr16r8(Reg16::HL, Reg8::D),
+            0x73 => Instruction::LDr16r8(Reg16::HL, Reg8::E),
+            0x74 => Instruction::LDr16r8(Reg16::HL, Reg8::H),
+            0x75 => Instruction::LDr16r8(Reg16::HL, Reg8::L),
+            0x77 => Instruction::LDr16r8(Reg16::HL, Reg8::A),
+
+            0x40 => Instruction::LD(Reg8::B, Reg8::B),
+            0x41 => Instruction::LD(Reg8::B, Reg8::C),
+            0x42 => Instruction::LD(Reg8::B, Reg8::D),
+            0x43 => Instruction::LD(Reg8::B, Reg8::E),
+            0x44 => Instruction::LD(Reg8::B, Reg8::H),
+            0x45 => Instruction::LD(Reg8::B, Reg8::L),
+            0x47 => Instruction::LD(Reg8::B, Reg8::A),
+            0x48 => Instruction::LD(Reg8::C, Reg8::B),
+            0x49 => Instruction::LD(Reg8::C, Reg8::C),
+            0x4A => Instruction::LD(Reg8::C, Reg8::D),
+            0x4B => Instruction::LD(Reg8::C, Reg8::E),
+            0x4C => Instruction::LD(Reg8::C, Reg8::H),
+            0x4D => Instruction::LD(Reg8::C, Reg8::L),
+            0x4F => Instruction::LD(Reg8::C, Reg8::A),
+            0x50 => Instruction::LD(Reg8::D, Reg8::B),
+            0x51 => Instruction::LD(Reg8::D, Reg8::C),
+            0x52 => Instruction::LD(Reg8::D, Reg8::D),
+            0x53 => Instruction::LD(Reg8::D, Reg8::E),
+            0x54 => Instruction::LD(Reg8::D, Reg8::H),
+            0x55 => Instruction::LD(Reg8::D, Reg8::L),
+            0x57 => Instruction::LD(Reg8::D, Reg8::A),
+            0x58 => Instruction::LD(Reg8::E, Reg8::B),
+            0x59 => Instruction::LD(Reg8::E, Reg8::C),
+            0x5A => Instruction::LD(Reg8::E, Reg8::D),
+            0x5B => Instruction::LD(Reg8::E, Reg8::E),
+            0x5C => Instruction::LD(Reg8::E, Reg8::H),
+            0x5D => Instruction::LD(Reg8::E, Reg8::L),
+            0x5F => Instruction::LD(Reg8::E, Reg8::A),
+            0x60 => Instruction::LD(Reg8::H, Reg8::B),
+            0x61 => Instruction::LD(Reg8::H, Reg8::C),
+            0x62 => Instruction::LD(Reg8::H, Reg8::D),
+            0x63 => Instruction::LD(Reg8::H, Reg8::E),
+            0x64 => Instruction::LD(Reg8::H, Reg8::H),
+            0x65 => Instruction::LD(Reg8::H, Reg8::L),
+            0x67 => Instruction::LD(Reg8::H, Reg8::A),
+            0x68 => Instruction::LD(Reg8::L, Reg8::B),
+            0x69 => Instruction::LD(Reg8::L, Reg8::C),
+            0x6A => Instruction::LD(Reg8::L, Reg8::D),
+            0x6B => Instruction::LD(Reg8::L, Reg8::E),
+            0x6C => Instruction::LD(Reg8::L, Reg8::H),
+            0x6D => Instruction::LD(Reg8::L, Reg8::L),
+            0x6F => Instruction::LD(Reg8::H, Reg8::A),
+            0x78 => Instruction::LD(Reg8::A, Reg8::B),
+            0x79 => Instruction::LD(Reg8::A, Reg8::C),
+            0x7A => Instruction::LD(Reg8::A, Reg8::D),
+            0x7B => Instruction::LD(Reg8::A, Reg8::E),
+            0x7C => Instruction::LD(Reg8::A, Reg8::H),
+            0x7D => Instruction::LD(Reg8::A, Reg8::L),
+            0x7F => Instruction::LD(Reg8::A, Reg8::A),
+
+            _ => Instruction::Unimplemented(opcode),
+        };
+    }
     fn execute(&mut self, inst: &Instruction) {
         match inst {
-            Instruction::Nop() => self.incr_pc(1),
+            Instruction::Nop() => (),
             Instruction::LD(r1, r2) => {
-                self.incr_pc(1);
                 self.set_reg8(*r1, self.reg8(*r2));
             }
             Instruction::LDrn(r, v) => {
-                self.incr_pc(2);
                 self.set_reg8(*r, *v);
             }
             Instruction::LDr8r16(r8, r16) => {
-                self.incr_pc(1);
                 let addr = self.reg16(*r16);
                 let value = self.load8(addr);
                 self.set_reg8(*r8, value);
             }
             Instruction::LDr16r8(r16, r8) => {
-                self.incr_pc(1);
                 let addr = self.reg16(*r16);
                 let value = self.reg8(*r8);
                 self.store8(addr, value);
             }
             Instruction::LDHLn(n) => {
-                self.incr_pc(2);
                 let hl = self.reg16(Reg16::HL);
                 self.store8(hl, *n);
             }
             Instruction::LDr8n16(r8, n16) => {
-                self.incr_pc(3);
                 let value = self.load8(*n16);
                 self.set_reg8(*r8, value);
             }
             Instruction::LDn16r8(n16, r8) => {
-                self.incr_pc(3);
                 let value = self.reg8(*r8);
                 self.store8(*n16, value);
             }
             Instruction::LDr16n16(r16, n16) => {
-                self.incr_pc(3);
                 self.set_reg16(*r16, *n16);
             }
 
             // not implemented
-            Instruction::Unimplemented(_op) => self.incr_pc(1),
+            Instruction::Unimplemented(_op) => (),
         }
     }
 
     pub fn run(&mut self) {
         // load the start address specified in the header
-        let pc = load_n16(&self.bus, 0x102);
+        self.set_reg16(Reg16::PC, 0x102);
+        let pc = self.load_pc_n16();
         self.set_reg16(Reg16::PC, pc);
 
         loop {
-            let inst = load_instruction(&self.bus, self.reg16(Reg16::PC));
+            let inst = self.load_instruction();
             println!("{}", inst);
             self.execute(&inst);
         }
