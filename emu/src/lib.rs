@@ -22,10 +22,24 @@ enum Reg16 {
     HL,
     BC,
     DE,
+    AF,
     SP,
     PC,
 }
 impl fmt::Display for Reg16 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+enum Cond {
+    C,
+    NC,
+    Z,
+    NZ,
+}
+impl fmt::Display for Cond {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:?}", self)
     }
@@ -60,6 +74,11 @@ enum Instruction {
 
     JPn16(u16),
     JRn8(u8),
+    JPCn16(Cond, u16),
+    JRCn8(Cond, u8),
+
+    Push(Reg16),
+    Pop(Reg16),
 
     Nop(),
     Unimplemented(u8),
@@ -92,6 +111,10 @@ impl fmt::Display for Instruction {
             Instruction::LDr16n16(r16, n16) => write!(f, "LD {},{}", r16, n16),
             Instruction::JPn16(n16) => write!(f, "JP {}", n16),
             Instruction::JRn8(n8) => write!(f, "JR {}", n8),
+            Instruction::JPCn16(c, n16) => write!(f, "JP {},{}", c, n16),
+            Instruction::JRCn8(c, n8) => write!(f, "JR {},{}", c, n8),
+            Instruction::Push(r) => write!(f, "PUSH {}", r),
+            Instruction::Pop(r) => write!(f, "POP {}", r),
             Instruction::Nop() => write!(f, "NOP"),
             Instruction::Unimplemented(op) => write!(f, "unimplemented {}", op),
         }
@@ -201,6 +224,7 @@ impl Cpu {
             Reg16::HL => return (self.reg_h as u16) << 8 | (self.reg_l as u16),
             Reg16::BC => return (self.reg_b as u16) << 8 | (self.reg_c as u16),
             Reg16::DE => return (self.reg_d as u16) << 8 | (self.reg_e as u16),
+            Reg16::AF => return (self.reg_a as u16) << 8 | (self.reg_f as u16),
             Reg16::SP => return self.reg_sp,
             Reg16::PC => return self.reg_pc,
         }
@@ -218,6 +242,10 @@ impl Cpu {
             Reg16::DE => {
                 self.reg_d = (val >> 8) as u8;
                 self.reg_e = (val & 0xFF) as u8;
+            }
+            Reg16::AF => {
+                self.reg_a = (val >> 8) as u8;
+                self.reg_f = (val & 0xFF) as u8;
             }
             Reg16::SP => self.reg_sp = val,
             Reg16::PC => self.reg_pc = val,
@@ -262,6 +290,20 @@ impl Cpu {
     }
     fn store8(&mut self, addr: u16, val: u8) {
         self.bus.store8(addr, val)
+    }
+
+    fn load16(&self, addr: u16) -> u16 {
+        let lsb = self.bus.load8(addr) as u16;
+        let msb = self.bus.load8(addr + 1) as u16;
+        msb << 8 | lsb
+    }
+
+    fn store16(&mut self, addr: u16, val: u16) {
+        let lsb = val & 0xFF;
+        let msb = (val & 0xFF00) >> 8;
+
+        self.bus.store8(addr, lsb as u8);
+        self.bus.store8(addr + 1, msb as u8);
     }
 
     fn load_pc_inc(&mut self) -> u8 {
@@ -460,7 +502,26 @@ impl Cpu {
             0x7F => Instruction::LD(Reg8::A, Reg8::A),
 
             0x18 => Instruction::JRn8(self.load_pc_inc()),
+            0x20 => Instruction::JRCn8(Cond::NZ, self.load_pc_inc()),
+            0x28 => Instruction::JRCn8(Cond::Z, self.load_pc_inc()),
+            0x30 => Instruction::JRCn8(Cond::NC, self.load_pc_inc()),
+            0x38 => Instruction::JRCn8(Cond::C, self.load_pc_inc()),
+
             0xC3 => Instruction::JPn16(self.load_pc_n16()),
+            0xC2 => Instruction::JPCn16(Cond::NZ, self.load_pc_n16()),
+            0xCA => Instruction::JPCn16(Cond::Z, self.load_pc_n16()),
+            0xD2 => Instruction::JPCn16(Cond::NC, self.load_pc_n16()),
+            0xDA => Instruction::JPCn16(Cond::C, self.load_pc_n16()),
+
+            0xC1 => Instruction::Pop(Reg16::BC),
+            0xD1 => Instruction::Pop(Reg16::DE),
+            0xE1 => Instruction::Pop(Reg16::HL),
+            0xF1 => Instruction::Pop(Reg16::AF),
+
+            0xC5 => Instruction::Push(Reg16::BC),
+            0xD5 => Instruction::Push(Reg16::DE),
+            0xE5 => Instruction::Push(Reg16::HL),
+            0xF5 => Instruction::Push(Reg16::AF),
 
             _ => Instruction::Unimplemented(opcode),
         };
@@ -577,11 +638,31 @@ impl Cpu {
             }
 
             Instruction::JPn16(n16) => {
-                self.set_reg16(Reg16::PC, *n16);
+                self.reg_pc = *n16;
+            }
+            Instruction::JPCn16(cond, n16) => {
+                if self.check(*cond) {
+                    self.reg_pc = *n16;
+                }
             }
             Instruction::JRn8(n8) => {
-                let pc = self.reg16(Reg16::PC);
-                self.set_reg16(Reg16::PC, pc.wrapping_add(*n8 as u16));
+                self.reg_pc = self.reg_pc.wrapping_add(*n8 as u16);
+            }
+            Instruction::JRCn8(cond, n8) => {
+                if self.check(*cond) {
+                    self.reg_pc = self.reg_pc.wrapping_add(*n8 as u16);
+                }
+            }
+
+            Instruction::Push(r) => {
+                let val = self.reg16(*r);
+                self.store16(self.reg_sp, val);
+                self.reg_sp = self.reg_sp.wrapping_sub(2);
+            }
+            Instruction::Pop(r) => {
+                let val = self.load16(self.reg_sp);
+                self.set_reg16(*r, val);
+                self.reg_sp = self.reg_sp.wrapping_add(2);
             }
 
             Instruction::Nop() => (),
@@ -591,6 +672,15 @@ impl Cpu {
         }
     }
 
+    fn check(&self, cond: Cond) -> bool {
+        match cond {
+            Cond::Z => (self.reg_f & 0x80) != 0,
+            Cond::NZ => (self.reg_f & 0x80) == 0,
+
+            Cond::C => (self.reg_f & 0x10) != 0,
+            Cond::NC => (self.reg_f & 0x10) == 0,
+        }
+    }
     pub fn run(&mut self) {
         // load the start address specified in the header
         self.set_reg16(Reg16::PC, 0x102);
