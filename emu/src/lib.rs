@@ -244,6 +244,13 @@ impl Cpu {
         }
     }
 
+    fn set_flags(&mut self, zero: bool, subtract: bool, carry: bool, half_carry: bool) {
+        self.reg_f = if zero { 0x80 } else { 0x00 }
+            | if subtract { 0x40 } else { 0x00 }
+            | if half_carry { 0x20 } else { 0x00 }
+            | if carry { 0x10 } else { 0x00 };
+    }
+
     fn load8(&self, addr: u16) -> u8 {
         self.bus.load8(addr)
     }
@@ -452,8 +459,12 @@ impl Cpu {
     fn execute(&mut self, inst: &Instruction) {
         match inst {
             Instruction::ADDr8r8(r1, r2) => {
-                self.set_reg8(*r1, self.reg8(*r1).wrapping_add(self.reg8(*r2)))
-                // TODO: flags
+                let old_val = self.reg8(*r1);
+                let param = self.reg8(*r2);
+                let (new_val, carry) = old_val.overflowing_add(param);
+                let half_carry = (old_val & 0x0F) + (param & 0x0F) > 0x0F;
+                self.set_reg8(*r1, new_val);
+                self.set_flags(new_val == 0, false, carry, half_carry)
             }
             Instruction::ADDr16r16(r1, r2) => {
                 self.set_reg16(*r1, self.reg16(*r1).wrapping_add(self.reg16(*r2)))
