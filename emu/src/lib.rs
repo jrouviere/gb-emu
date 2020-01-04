@@ -253,7 +253,7 @@ impl Cpu {
 
     fn load_pc_inc(&mut self) -> u8 {
         let data = self.load8(self.reg_pc);
-        self.reg_pc += 1;
+        self.reg_pc = self.reg_pc.wrapping_add(1);
         data
     }
 
@@ -452,28 +452,28 @@ impl Cpu {
     fn execute(&mut self, inst: &Instruction) {
         match inst {
             Instruction::ADDr8r8(r1, r2) => {
-                self.set_reg8(*r1, self.reg8(*r1) + self.reg8(*r2))
+                self.set_reg8(*r1, self.reg8(*r1).wrapping_add(self.reg8(*r2)))
                 // TODO: flags
             }
             Instruction::ADDr16r16(r1, r2) => {
-                self.set_reg16(*r1, self.reg16(*r1) + self.reg16(*r2))
+                self.set_reg16(*r1, self.reg16(*r1).wrapping_add(self.reg16(*r2)))
                 // TODO: flags
             }
             Instruction::ADDr16n8(r16, n8) => {
-                self.set_reg16(*r16, self.reg16(*r16) + (*n8 as u16))
+                self.set_reg16(*r16, self.reg16(*r16).wrapping_add(*n8 as u16))
                 // TODO: flags
             }
             Instruction::SUB(r) => {
-                self.reg_a = self.reg_a - self.reg8(*r)
+                self.reg_a = self.reg_a.wrapping_sub(self.reg8(*r))
                 // TODO: flags
             }
             Instruction::ADC(r) => {
-                self.reg_a = self.reg_a + self.reg8(*r)
+                self.reg_a = self.reg_a.wrapping_add(self.reg8(*r))
                 // TODO: carry flag?
                 // TODO: flags
             }
             Instruction::SBC(r) => {
-                self.reg_a = self.reg_a - self.reg8(*r)
+                self.reg_a = self.reg_a.wrapping_sub(self.reg8(*r))
                 // TODO: carry flag?
                 // TODO: flags
             }
@@ -508,19 +508,19 @@ impl Cpu {
                 }
             }
             Instruction::INC8(r) => {
-                self.set_reg8(*r, self.reg8(*r) + 1)
+                self.set_reg8(*r, self.reg8(*r).wrapping_add(1))
                 // TODO: flags
             }
             Instruction::DEC8(r) => {
-                self.set_reg8(*r, self.reg8(*r) - 1)
+                self.set_reg8(*r, self.reg8(*r).wrapping_sub(1))
                 // TODO: flags
             }
             Instruction::INC16(r) => {
-                self.set_reg16(*r, self.reg16(*r) + 1)
+                self.set_reg16(*r, self.reg16(*r).wrapping_add(1))
                 // TODO: flags
             }
             Instruction::DEC16(r) => {
-                self.set_reg16(*r, self.reg16(*r) - 1)
+                self.set_reg16(*r, self.reg16(*r).wrapping_sub(1))
                 // TODO: flags
             }
 
@@ -567,6 +567,7 @@ impl Cpu {
         self.set_reg16(Reg16::PC, 0x102);
         let pc = self.load_pc_n16();
         self.set_reg16(Reg16::PC, pc);
+        println!("Starting from {}", pc);
 
         loop {
             let inst = self.load_instruction();
