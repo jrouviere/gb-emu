@@ -79,7 +79,7 @@ impl fmt::Display for Instruction {
             Instruction::OR(r) => write!(f, "OR {}", r),
             Instruction::XOR(r) => write!(f, "XOR {}", r),
             Instruction::LD(r1, r2) => write!(f, "LD {},{}", r1, r2),
-            Instruction::LDrn(r, n) => write!(f, "LDrn {},{}", r, n),
+            Instruction::LDrn(r, n) => write!(f, "LD {},{}", r, n),
             Instruction::LDr8r16(r8, r16) => write!(f, "LD {},({})", r8, r16),
             Instruction::LDr16r8(r16, r8) => write!(f, "LD ({}),{}", r16, r8),
             Instruction::LDHLn(n) => write!(f, "LD (HL),{}", n),
