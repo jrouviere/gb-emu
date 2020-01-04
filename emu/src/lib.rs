@@ -57,6 +57,10 @@ enum Instruction {
     LDr8n16(Reg8, u16),
     LDn16r8(u16, Reg8),
     LDr16n16(Reg16, u16),
+
+    JPn16(u16),
+    JRn8(u8),
+
     Nop(),
     Unimplemented(u8),
 }
@@ -86,6 +90,8 @@ impl fmt::Display for Instruction {
             Instruction::LDr8n16(r8, n16) => write!(f, "LD {},({})", r8, n16),
             Instruction::LDn16r8(n16, r8) => write!(f, "LD ({}),{}", n16, r8),
             Instruction::LDr16n16(r16, n16) => write!(f, "LD {},{}", r16, n16),
+            Instruction::JPn16(n16) => write!(f, "JP {}", n16),
+            Instruction::JRn8(n8) => write!(f, "JR {}", n8),
             Instruction::Nop() => write!(f, "NOP"),
             Instruction::Unimplemented(op) => write!(f, "unimplemented {}", op),
         }
@@ -453,6 +459,9 @@ impl Cpu {
             0x7D => Instruction::LD(Reg8::A, Reg8::L),
             0x7F => Instruction::LD(Reg8::A, Reg8::A),
 
+            0x18 => Instruction::JRn8(self.load_pc_inc()),
+            0xC3 => Instruction::JPn16(self.load_pc_n16()),
+
             _ => Instruction::Unimplemented(opcode),
         };
     }
@@ -566,6 +575,15 @@ impl Cpu {
             Instruction::LDr16n16(r16, n16) => {
                 self.set_reg16(*r16, *n16);
             }
+
+            Instruction::JPn16(n16) => {
+                self.set_reg16(Reg16::PC, *n16);
+            }
+            Instruction::JRn8(n8) => {
+                let pc = self.reg16(Reg16::PC);
+                self.set_reg16(Reg16::PC, pc.wrapping_add(*n8 as u16));
+            }
+
             Instruction::Nop() => (),
 
             // not implemented
