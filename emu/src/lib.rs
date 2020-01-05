@@ -150,7 +150,7 @@ impl fmt::Display for Instruction {
             Instruction::RRC(r) => write!(f, "RRC {}", r),
             Instruction::RL(r) => write!(f, "RL {}", r),
             Instruction::RR(r) => write!(f, "RR {}", r),
-            Instruction::CPL => write!(f, "CPL"),
+            Instruction::CPL() => write!(f, "CPL"),
             Instruction::LD(r1, r2) => write!(f, "LD {},{}", r1, r2),
             Instruction::LD16(r16, n16) => write!(f, "LD {},{}", r16, n16),
             Instruction::JPn16(n16) => write!(f, "JP {}", n16),
@@ -765,7 +765,7 @@ impl Cpu {
                 self.set_flags(false, false, ovfl, false);
             }
 
-            Instruction::CPL(r) => {
+            Instruction::CPL() => {
                 self.reg_a = !self.reg_a;
             }
 
