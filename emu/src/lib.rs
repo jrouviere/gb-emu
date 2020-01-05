@@ -117,6 +117,7 @@ enum Instruction {
     DI(),
     EI(),
 
+    HALT(),
     Nop(),
     Unimplemented(u8),
 }
@@ -152,6 +153,7 @@ impl fmt::Display for Instruction {
             Instruction::RETC(c) => write!(f, "RET {}", c),
             Instruction::DI() => write!(f, "DI"),
             Instruction::EI() => write!(f, "EI"),
+            Instruction::HALT() => write!(f, "HALT"),
             Instruction::Nop() => write!(f, "NOP"),
             Instruction::Unimplemented(op) => write!(f, "unimplemented {}", op),
         }
@@ -634,6 +636,8 @@ impl Cpu {
             0xD4 => Instruction::CALLC(Cond::NC, self.load_pc_n16()),
             0xDC => Instruction::CALLC(Cond::C, self.load_pc_n16()),
 
+            0x76 => Instruction::HALT(),
+
             0xC9 => Instruction::RET(),
             0xC0 => Instruction::RETC(Cond::NZ),
             0xC8 => Instruction::RETC(Cond::Z),
@@ -781,8 +785,9 @@ impl Cpu {
 
             Instruction::Nop() => (),
 
-            Instruction::DI() => (), // TODO:
-            Instruction::EI() => (), // TODO:
+            Instruction::HALT() => (), // TODO:
+            Instruction::DI() => (),   // TODO:
+            Instruction::EI() => (),   // TODO:
 
             // not implemented
             Instruction::Unimplemented(_op) => (),
