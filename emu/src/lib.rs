@@ -74,13 +74,13 @@ enum Instruction {
     ADD(Par8),
     ADDr16(Reg16),
     ADDr16n8(Reg16, u8),
-    ADC(Reg8),
-    SBC(Reg8),
-    CP(Reg8),
-    SUB(Reg8),
-    AND(Reg8),
-    OR(Reg8),
-    XOR(Reg8),
+    ADC(Par8),
+    SBC(Par8),
+    CP(Par8),
+    SUB(Par8),
+    AND(Par8),
+    OR(Par8),
+    XOR(Par8),
 
     INC8(Reg8),
     INC16(Reg16),
@@ -400,55 +400,75 @@ impl Cpu {
             0x87 => Instruction::ADD(Par8::R8(Reg8::A)),
             0xC6 => Instruction::ADD(Par8::D8(self.load_pc_inc())),
 
-            0x90 => Instruction::SUB(Reg8::B),
-            0x91 => Instruction::SUB(Reg8::C),
-            0x92 => Instruction::SUB(Reg8::D),
-            0x93 => Instruction::SUB(Reg8::E),
-            0x94 => Instruction::SUB(Reg8::H),
-            0x95 => Instruction::SUB(Reg8::L),
-            0x97 => Instruction::SUB(Reg8::A),
-            0xA0 => Instruction::AND(Reg8::B),
-            0xA1 => Instruction::AND(Reg8::C),
-            0xA2 => Instruction::AND(Reg8::D),
-            0xA3 => Instruction::AND(Reg8::E),
-            0xA4 => Instruction::AND(Reg8::H),
-            0xA5 => Instruction::AND(Reg8::L),
-            0xA7 => Instruction::AND(Reg8::A),
-            0xB0 => Instruction::OR(Reg8::B),
-            0xB1 => Instruction::OR(Reg8::C),
-            0xB2 => Instruction::OR(Reg8::D),
-            0xB3 => Instruction::OR(Reg8::E),
-            0xB4 => Instruction::OR(Reg8::H),
-            0xB5 => Instruction::OR(Reg8::L),
-            0xB7 => Instruction::OR(Reg8::A),
-            0x88 => Instruction::ADC(Reg8::B),
-            0x89 => Instruction::ADC(Reg8::C),
-            0x8A => Instruction::ADC(Reg8::D),
-            0x8B => Instruction::ADC(Reg8::E),
-            0x8C => Instruction::ADC(Reg8::H),
-            0x8D => Instruction::ADC(Reg8::L),
-            0x8F => Instruction::ADC(Reg8::A),
-            0x98 => Instruction::SBC(Reg8::B),
-            0x99 => Instruction::SBC(Reg8::C),
-            0x9A => Instruction::SBC(Reg8::D),
-            0x9B => Instruction::SBC(Reg8::E),
-            0x9C => Instruction::SBC(Reg8::H),
-            0x9D => Instruction::SBC(Reg8::L),
-            0x9F => Instruction::SBC(Reg8::A),
-            0xA8 => Instruction::XOR(Reg8::B),
-            0xA9 => Instruction::XOR(Reg8::C),
-            0xAA => Instruction::XOR(Reg8::D),
-            0xAB => Instruction::XOR(Reg8::E),
-            0xAC => Instruction::XOR(Reg8::H),
-            0xAD => Instruction::XOR(Reg8::L),
-            0xAF => Instruction::XOR(Reg8::A),
-            0xB8 => Instruction::CP(Reg8::B),
-            0xB9 => Instruction::CP(Reg8::C),
-            0xBA => Instruction::CP(Reg8::D),
-            0xBB => Instruction::CP(Reg8::E),
-            0xBC => Instruction::CP(Reg8::H),
-            0xBD => Instruction::CP(Reg8::L),
-            0xBF => Instruction::CP(Reg8::A),
+            0x90 => Instruction::SUB(Par8::R8(Reg8::B)),
+            0x91 => Instruction::SUB(Par8::R8(Reg8::C)),
+            0x92 => Instruction::SUB(Par8::R8(Reg8::D)),
+            0x93 => Instruction::SUB(Par8::R8(Reg8::E)),
+            0x94 => Instruction::SUB(Par8::R8(Reg8::H)),
+            0x95 => Instruction::SUB(Par8::R8(Reg8::L)),
+            0x96 => Instruction::SUB(Par8::AHL),
+            0x97 => Instruction::SUB(Par8::R8(Reg8::A)),
+            0xD6 => Instruction::SUB(Par8::D8(self.load_pc_inc())),
+
+            0xA0 => Instruction::AND(Par8::R8(Reg8::B)),
+            0xA1 => Instruction::AND(Par8::R8(Reg8::C)),
+            0xA2 => Instruction::AND(Par8::R8(Reg8::D)),
+            0xA3 => Instruction::AND(Par8::R8(Reg8::E)),
+            0xA4 => Instruction::AND(Par8::R8(Reg8::H)),
+            0xA5 => Instruction::AND(Par8::R8(Reg8::L)),
+            0xA6 => Instruction::AND(Par8::AHL),
+            0xA7 => Instruction::AND(Par8::R8(Reg8::A)),
+            0xE6 => Instruction::AND(Par8::D8(self.load_pc_inc())),
+
+            0xB0 => Instruction::OR(Par8::R8(Reg8::B)),
+            0xB1 => Instruction::OR(Par8::R8(Reg8::C)),
+            0xB2 => Instruction::OR(Par8::R8(Reg8::D)),
+            0xB3 => Instruction::OR(Par8::R8(Reg8::E)),
+            0xB4 => Instruction::OR(Par8::R8(Reg8::H)),
+            0xB5 => Instruction::OR(Par8::R8(Reg8::L)),
+            0xB6 => Instruction::OR(Par8::AHL),
+            0xB7 => Instruction::OR(Par8::R8(Reg8::A)),
+            0xF6 => Instruction::OR(Par8::D8(self.load_pc_inc())),
+
+            0x88 => Instruction::ADC(Par8::R8(Reg8::B)),
+            0x89 => Instruction::ADC(Par8::R8(Reg8::C)),
+            0x8A => Instruction::ADC(Par8::R8(Reg8::D)),
+            0x8B => Instruction::ADC(Par8::R8(Reg8::E)),
+            0x8C => Instruction::ADC(Par8::R8(Reg8::H)),
+            0x8D => Instruction::ADC(Par8::R8(Reg8::L)),
+            0x8E => Instruction::ADC(Par8::AHL),
+            0x8F => Instruction::ADC(Par8::R8(Reg8::A)),
+            0xCE => Instruction::ADC(Par8::D8(self.load_pc_inc())),
+
+            0x98 => Instruction::SBC(Par8::R8(Reg8::B)),
+            0x99 => Instruction::SBC(Par8::R8(Reg8::C)),
+            0x9A => Instruction::SBC(Par8::R8(Reg8::D)),
+            0x9B => Instruction::SBC(Par8::R8(Reg8::E)),
+            0x9C => Instruction::SBC(Par8::R8(Reg8::H)),
+            0x9D => Instruction::SBC(Par8::R8(Reg8::L)),
+            0x9E => Instruction::SBC(Par8::AHL),
+            0x9F => Instruction::SBC(Par8::R8(Reg8::A)),
+            0xDE => Instruction::SBC(Par8::D8(self.load_pc_inc())),
+
+            0xA8 => Instruction::XOR(Par8::R8(Reg8::B)),
+            0xA9 => Instruction::XOR(Par8::R8(Reg8::C)),
+            0xAA => Instruction::XOR(Par8::R8(Reg8::D)),
+            0xAB => Instruction::XOR(Par8::R8(Reg8::E)),
+            0xAC => Instruction::XOR(Par8::R8(Reg8::H)),
+            0xAD => Instruction::XOR(Par8::R8(Reg8::L)),
+            0xAE => Instruction::XOR(Par8::AHL),
+            0xAF => Instruction::XOR(Par8::R8(Reg8::A)),
+            0xEE => Instruction::XOR(Par8::D8(self.load_pc_inc())),
+
+            0xB8 => Instruction::CP(Par8::R8(Reg8::B)),
+            0xB9 => Instruction::CP(Par8::R8(Reg8::C)),
+            0xBA => Instruction::CP(Par8::R8(Reg8::D)),
+            0xBB => Instruction::CP(Par8::R8(Reg8::E)),
+            0xBC => Instruction::CP(Par8::R8(Reg8::H)),
+            0xBD => Instruction::CP(Par8::R8(Reg8::L)),
+            0xBE => Instruction::CP(Par8::AHL),
+            0xBF => Instruction::CP(Par8::R8(Reg8::A)),
+            0xFE => Instruction::CP(Par8::D8(self.load_pc_inc())),
 
             0x09 => Instruction::ADDr16(Reg16::BC),
             0x19 => Instruction::ADDr16(Reg16::DE),
@@ -602,22 +622,22 @@ impl Cpu {
                 self.set_reg16(*r16, self.reg16(*r16).wrapping_add(*n8 as u16))
                 // TODO: flags
             }
-            Instruction::SUB(r) => {
-                self.reg_a = self.reg_a.wrapping_sub(self.reg8(*r))
+            Instruction::SUB(p) => {
+                self.reg_a = self.reg_a.wrapping_sub(self.par8(*p))
                 // TODO: flags
             }
-            Instruction::ADC(r) => {
-                self.reg_a = self.reg_a.wrapping_add(self.reg8(*r))
+            Instruction::ADC(p) => {
+                self.reg_a = self.reg_a.wrapping_add(self.par8(*p))
                 // TODO: carry flag?
                 // TODO: flags
             }
-            Instruction::SBC(r) => {
-                self.reg_a = self.reg_a.wrapping_sub(self.reg8(*r))
+            Instruction::SBC(p) => {
+                self.reg_a = self.reg_a.wrapping_sub(self.par8(*p))
                 // TODO: carry flag?
                 // TODO: flags
             }
-            Instruction::CP(r) => {
-                if self.reg_a == self.reg8(*r) {
+            Instruction::CP(p) => {
+                if self.reg_a == self.par8(*p) {
                     self.reg_a = 0
                 } else {
                     self.reg_a = 1
@@ -625,22 +645,22 @@ impl Cpu {
                 // TODO: flags
             }
 
-            Instruction::AND(r) => {
-                if (self.reg_a != 0) && (self.reg8(*r) != 0) {
+            Instruction::AND(p) => {
+                if (self.reg_a != 0) && (self.par8(*p) != 0) {
                     self.reg_a = 1
                 } else {
                     self.reg_a = 0
                 }
             }
-            Instruction::OR(r) => {
-                if (self.reg_a != 0) || (self.reg8(*r) != 0) {
+            Instruction::OR(p) => {
+                if (self.reg_a != 0) || (self.par8(*p) != 0) {
                     self.reg_a = 1
                 } else {
                     self.reg_a = 0
                 }
             }
-            Instruction::XOR(r) => {
-                if (self.reg_a != 0) != (self.reg8(*r) != 0) {
+            Instruction::XOR(p) => {
+                if (self.reg_a != 0) != (self.par8(*p) != 0) {
                     self.reg_a = 1
                 } else {
                     self.reg_a = 0
