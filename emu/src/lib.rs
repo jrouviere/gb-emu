@@ -83,6 +83,9 @@ enum Instruction {
     CALL(u16),
     CALLC(Cond, u16),
 
+    RET(),
+    RETC(Cond),
+
     Nop(),
     Unimplemented(u8),
 }
@@ -120,6 +123,8 @@ impl fmt::Display for Instruction {
             Instruction::POP(r) => write!(f, "POP {}", r),
             Instruction::CALL(n16) => write!(f, "CALL {}", n16),
             Instruction::CALLC(c, n16) => write!(f, "CALL {},{}", c, n16),
+            Instruction::RET() => write!(f, "RET"),
+            Instruction::RETC(c) => write!(f, "RET {}", c),
             Instruction::Nop() => write!(f, "NOP"),
             Instruction::Unimplemented(op) => write!(f, "unimplemented {}", op),
         }
@@ -532,6 +537,12 @@ impl Cpu {
             0xD4 => Instruction::CALLC(Cond::NC, self.load_pc_n16()),
             0xDC => Instruction::CALLC(Cond::C, self.load_pc_n16()),
 
+            0xC9 => Instruction::RET(),
+            0xC0 => Instruction::RETC(Cond::NZ),
+            0xC8 => Instruction::RETC(Cond::Z),
+            0xD0 => Instruction::RETC(Cond::NC),
+            0xD8 => Instruction::RETC(Cond::C),
+
             _ => Instruction::Unimplemented(opcode),
         };
     }
@@ -665,26 +676,31 @@ impl Cpu {
 
             Instruction::PUSH(r) => {
                 let val = self.reg16(*r);
-                self.store16(self.reg_sp, val);
-                self.reg_sp = self.reg_sp.wrapping_sub(2);
+                self.push(val);
             }
             Instruction::POP(r) => {
-                let val = self.load16(self.reg_sp);
+                let val = self.pop();
                 self.set_reg16(*r, val);
-                self.reg_sp = self.reg_sp.wrapping_add(2);
             }
             Instruction::CALL(n16) => {
-                //push pc
-                self.store16(self.reg_sp, self.reg_pc);
-                self.reg_sp = self.reg_sp.wrapping_sub(2);
-                // jump
+                self.push(self.reg_pc);
                 self.reg_pc = *n16;
             }
             Instruction::CALLC(cond, n16) => {
                 if self.check(*cond) {
-                    self.store16(self.reg_sp, self.reg_pc);
-                    self.reg_sp = self.reg_sp.wrapping_sub(2);
+                    self.push(self.reg_pc);
                     self.reg_pc = *n16;
+                }
+            }
+
+            Instruction::RET() => {
+                let pc = self.pop();
+                self.reg_pc = pc;
+            }
+            Instruction::RETC(cond) => {
+                if self.check(*cond) {
+                    let pc = self.pop();
+                    self.reg_pc = pc;
                 }
             }
 
@@ -693,6 +709,17 @@ impl Cpu {
             // not implemented
             Instruction::Unimplemented(_op) => (),
         }
+    }
+
+    fn push(&mut self, n: u16) {
+        self.reg_sp = self.reg_sp.wrapping_sub(2);
+        self.store16(self.reg_sp, n);
+    }
+
+    fn pop(&mut self) -> u16 {
+        let val = self.load16(self.reg_sp);
+        self.reg_sp = self.reg_sp.wrapping_add(2);
+        val
     }
 
     fn check(&self, cond: Cond) -> bool {
