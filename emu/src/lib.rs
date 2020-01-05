@@ -57,8 +57,8 @@ impl fmt::Display for Par8 {
         match self {
             Par8::R8(r) => write!(f, "{}", r),
             Par8::R16(r) => write!(f, "({})", r),
-            Par8::A8(n) => write!(f, "($FF00+{})", n),
-            Par8::A16(n) => write!(f, "({})", n),
+            Par8::A8(n) => write!(f, "($FF00+${:x})", n),
+            Par8::A16(n) => write!(f, "(${:x})", n),
             Par8::D8(n) => write!(f, "{}", n),
             Par8::HLI => write!(f, "(HL+)"),
             Par8::HLD => write!(f, "(HL-)"),
@@ -107,10 +107,12 @@ enum Instruction {
     LD(Par8, Par8),
     LD16(Reg16, u16),
 
+    JPHL(),
     JPn16(u16),
     JRn8(u8),
     JPCn16(Cond, u16),
     JRCn8(Cond, u8),
+    RST(u8),
 
     PUSH(Reg16),
     POP(Reg16),
@@ -124,6 +126,7 @@ enum Instruction {
     DI(),
     EI(),
 
+    STOP(),
     HALT(),
     Nop(),
     Unimplemented(u8),
@@ -153,10 +156,12 @@ impl fmt::Display for Instruction {
             Instruction::CPL() => write!(f, "CPL"),
             Instruction::LD(r1, r2) => write!(f, "LD {},{}", r1, r2),
             Instruction::LD16(r16, n16) => write!(f, "LD {},{}", r16, n16),
+            Instruction::JPHL() => write!(f, "JP HL"),
             Instruction::JPn16(n16) => write!(f, "JP {}", n16),
             Instruction::JRn8(n8) => write!(f, "JR {}", n8),
             Instruction::JPCn16(c, n16) => write!(f, "JP {},{}", c, n16),
             Instruction::JRCn8(c, n8) => write!(f, "JR {},{}", c, n8),
+            Instruction::RST(n8) => write!(f, "RST {}", n8),
             Instruction::PUSH(r) => write!(f, "PUSH {}", r),
             Instruction::POP(r) => write!(f, "POP {}", r),
             Instruction::CALL(n16) => write!(f, "CALL {}", n16),
@@ -165,9 +170,10 @@ impl fmt::Display for Instruction {
             Instruction::RETC(c) => write!(f, "RET {}", c),
             Instruction::DI() => write!(f, "DI"),
             Instruction::EI() => write!(f, "EI"),
+            Instruction::STOP() => write!(f, "STOP"),
             Instruction::HALT() => write!(f, "HALT"),
             Instruction::Nop() => write!(f, "NOP"),
-            Instruction::Unimplemented(op) => write!(f, "unimplemented {}", op),
+            Instruction::Unimplemented(op) => write!(f, "unimplemented ${:X}", op),
         }
     }
 }
@@ -410,6 +416,12 @@ impl Cpu {
         return match opcode {
             0x00 => Instruction::Nop(),
 
+            0xCB => {
+                //TODO: Prefix instructions
+                self.load_pc_inc();
+                return Instruction::Nop();
+            }
+
             0xF3 => Instruction::DI(),
             0xFB => Instruction::EI(),
 
@@ -635,6 +647,7 @@ impl Cpu {
             0x30 => Instruction::JRCn8(Cond::NC, self.load_pc_inc()),
             0x38 => Instruction::JRCn8(Cond::C, self.load_pc_inc()),
 
+            0xE9 => Instruction::JPHL(),
             0xC3 => Instruction::JPn16(self.load_pc_n16()),
             0xC2 => Instruction::JPCn16(Cond::NZ, self.load_pc_n16()),
             0xCA => Instruction::JPCn16(Cond::Z, self.load_pc_n16()),
@@ -654,7 +667,16 @@ impl Cpu {
             0xCC => Instruction::CALLC(Cond::Z, self.load_pc_n16()),
             0xD4 => Instruction::CALLC(Cond::NC, self.load_pc_n16()),
             0xDC => Instruction::CALLC(Cond::C, self.load_pc_n16()),
+            0xC7 => Instruction::RST(0x00),
+            0xCF => Instruction::RST(0x08),
+            0xD7 => Instruction::RST(0x10),
+            0xDF => Instruction::RST(0x18),
+            0xE7 => Instruction::RST(0x20),
+            0xEF => Instruction::RST(0x28),
+            0xF7 => Instruction::RST(0x30),
+            0xFF => Instruction::RST(0x38),
 
+            0x10 => Instruction::STOP(),
             0x76 => Instruction::HALT(),
 
             0xC9 => Instruction::RET(),
@@ -794,6 +816,9 @@ impl Cpu {
                 self.set_reg16(*r16, *n16);
             }
 
+            Instruction::JPHL() => {
+                self.reg_pc = self.reg16(Reg16::HL);
+            }
             Instruction::JPn16(n16) => {
                 self.reg_pc = *n16;
             }
@@ -830,6 +855,11 @@ impl Cpu {
                 }
             }
 
+            Instruction::RST(n8) => {
+                self.push(self.reg_pc);
+                self.reg_pc = *n8 as u16;
+            }
+
             Instruction::RET() => {
                 let pc = self.pop();
                 self.reg_pc = pc;
@@ -843,6 +873,7 @@ impl Cpu {
 
             Instruction::Nop() => (),
 
+            Instruction::STOP() => (), // TODO:
             Instruction::HALT() => (), // TODO:
             Instruction::DI() => (),   // TODO:
             Instruction::EI() => (),   // TODO:
@@ -881,7 +912,7 @@ impl Cpu {
 
         loop {
             let inst = self.load_instruction();
-            println!("{}", inst);
+            // println!("{}", inst);
             self.execute(&inst);
         }
     }
