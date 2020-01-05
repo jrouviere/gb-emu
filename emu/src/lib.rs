@@ -32,6 +32,30 @@ impl fmt::Display for Reg16 {
     }
 }
 
+// all 8 bit parameters
+#[derive(Copy, Clone, Debug)]
+enum Par8 {
+    // 8-bit registers
+    R8(Reg8),
+    //(HL) address pointed by HL
+    AHL,
+    //(a16) address pointed by value
+    A16(u16),
+    //nn direct value
+    D8(u8),
+}
+
+impl fmt::Display for Par8 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Par8::R8(r) => write!(f, "{}", r),
+            Par8::AHL => write!(f, "(HL)"),
+            Par8::A16(n) => write!(f, "({})", n),
+            Par8::D8(n) => write!(f, "{}", n),
+        }
+    }
+}
+
 #[derive(Copy, Clone, Debug)]
 enum Cond {
     C,
@@ -47,8 +71,8 @@ impl fmt::Display for Cond {
 
 #[derive(Copy, Clone)]
 enum Instruction {
-    ADDr8r8(Reg8, Reg8),
-    ADDr16r16(Reg16, Reg16),
+    ADD(Par8),
+    ADDr16(Reg16),
     ADDr16n8(Reg16, u8),
     ADC(Reg8),
     SBC(Reg8),
@@ -93,8 +117,8 @@ enum Instruction {
 impl fmt::Display for Instruction {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Instruction::ADDr8r8(r1, r2) => write!(f, "ADD {},{}", r1, r2),
-            Instruction::ADDr16r16(r1, r2) => write!(f, "ADD {},{}", r1, r2),
+            Instruction::ADD(p) => write!(f, "ADD A,{}", p),
+            Instruction::ADDr16(r) => write!(f, "ADD HL,{}", r),
             Instruction::ADDr16n8(r16, n8) => write!(f, "ADD {},{}", r16, n8),
             Instruction::INC8(r) => write!(f, "INC {}", r),
             Instruction::INC16(r) => write!(f, "INC {}", r),
@@ -262,6 +286,15 @@ impl Cpu {
         }
     }
 
+    fn par8(&self, p: Par8) -> u8 {
+        match p {
+            Par8::R8(r) => self.reg8(r),
+            Par8::AHL => self.bus.load8(self.reg16(Reg16::HL)),
+            Par8::A16(a) => self.bus.load8(a),
+            Par8::D8(d) => d,
+        }
+    }
+
     fn reg8(&self, r: Reg8) -> u8 {
         match r {
             Reg8::A => return self.reg_a,
@@ -357,13 +390,16 @@ impl Cpu {
             0x2B => Instruction::DEC16(Reg16::HL),
             0x3B => Instruction::DEC16(Reg16::SP),
 
-            0x80 => Instruction::ADDr8r8(Reg8::A, Reg8::B),
-            0x81 => Instruction::ADDr8r8(Reg8::A, Reg8::C),
-            0x82 => Instruction::ADDr8r8(Reg8::A, Reg8::D),
-            0x83 => Instruction::ADDr8r8(Reg8::A, Reg8::E),
-            0x84 => Instruction::ADDr8r8(Reg8::A, Reg8::H),
-            0x85 => Instruction::ADDr8r8(Reg8::A, Reg8::L),
-            0x87 => Instruction::ADDr8r8(Reg8::A, Reg8::A),
+            0x80 => Instruction::ADD(Par8::R8(Reg8::B)),
+            0x81 => Instruction::ADD(Par8::R8(Reg8::C)),
+            0x82 => Instruction::ADD(Par8::R8(Reg8::D)),
+            0x83 => Instruction::ADD(Par8::R8(Reg8::E)),
+            0x84 => Instruction::ADD(Par8::R8(Reg8::H)),
+            0x85 => Instruction::ADD(Par8::R8(Reg8::L)),
+            0x86 => Instruction::ADD(Par8::AHL),
+            0x87 => Instruction::ADD(Par8::R8(Reg8::A)),
+            0xC6 => Instruction::ADD(Par8::D8(self.load_pc_inc())),
+
             0x90 => Instruction::SUB(Reg8::B),
             0x91 => Instruction::SUB(Reg8::C),
             0x92 => Instruction::SUB(Reg8::D),
@@ -414,10 +450,10 @@ impl Cpu {
             0xBD => Instruction::CP(Reg8::L),
             0xBF => Instruction::CP(Reg8::A),
 
-            0x09 => Instruction::ADDr16r16(Reg16::HL, Reg16::BC),
-            0x19 => Instruction::ADDr16r16(Reg16::HL, Reg16::DE),
-            0x29 => Instruction::ADDr16r16(Reg16::HL, Reg16::HL),
-            0x39 => Instruction::ADDr16r16(Reg16::HL, Reg16::SP),
+            0x09 => Instruction::ADDr16(Reg16::BC),
+            0x19 => Instruction::ADDr16(Reg16::DE),
+            0x29 => Instruction::ADDr16(Reg16::HL),
+            0x39 => Instruction::ADDr16(Reg16::SP),
 
             0xE8 => Instruction::ADDr16n8(Reg16::SP, self.load_pc_inc()),
 
@@ -548,16 +584,18 @@ impl Cpu {
     }
     fn execute(&mut self, inst: &Instruction) {
         match inst {
-            Instruction::ADDr8r8(r1, r2) => {
-                let old_val = self.reg8(*r1);
-                let param = self.reg8(*r2);
-                let (new_val, carry) = old_val.overflowing_add(param);
-                let half_carry = (old_val & 0x0F) + (param & 0x0F) > 0x0F;
-                self.set_reg8(*r1, new_val);
+            Instruction::ADD(p) => {
+                let param = self.par8(*p);
+                let (new_val, carry) = self.reg_a.overflowing_add(param);
+                let half_carry = (self.reg_a & 0x0F) + (param & 0x0F) > 0x0F;
+                self.reg_a = new_val;
                 self.set_flags(new_val == 0, false, carry, half_carry)
             }
-            Instruction::ADDr16r16(r1, r2) => {
-                self.set_reg16(*r1, self.reg16(*r1).wrapping_add(self.reg16(*r2)))
+            Instruction::ADDr16(r) => {
+                self.set_reg16(
+                    Reg16::HL,
+                    self.reg16(Reg16::HL).wrapping_add(self.reg16(*r)),
+                )
                 // TODO: flags
             }
             Instruction::ADDr16n8(r16, n8) => {
