@@ -97,6 +97,13 @@ enum Instruction {
     DEC8(Reg8),
     DEC16(Reg16),
 
+    RLC(Reg8),
+    RRC(Reg8),
+    RL(Reg8),
+    RR(Reg8),
+
+    CPL(),
+
     LD(Par8, Par8),
     LD16(Reg16, u16),
 
@@ -139,6 +146,11 @@ impl fmt::Display for Instruction {
             Instruction::AND(r) => write!(f, "AND {}", r),
             Instruction::OR(r) => write!(f, "OR {}", r),
             Instruction::XOR(r) => write!(f, "XOR {}", r),
+            Instruction::RLC(r) => write!(f, "RLC {}", r),
+            Instruction::RRC(r) => write!(f, "RRC {}", r),
+            Instruction::RL(r) => write!(f, "RL {}", r),
+            Instruction::RR(r) => write!(f, "RR {}", r),
+            Instruction::CPL => write!(f, "CPL"),
             Instruction::LD(r1, r2) => write!(f, "LD {},{}", r1, r2),
             Instruction::LD16(r16, n16) => write!(f, "LD {},{}", r16, n16),
             Instruction::JPn16(n16) => write!(f, "JP {}", n16),
@@ -234,10 +246,10 @@ impl Bus {
             0xC000..=0xDFFF => self.int_ram[(addr - 0xC000) as usize] = val,
             0xE000..=0xFDFF => self.int_ram[(addr - 0xE000) as usize] = val, // mirror of int ram
             0xFE00..=0xFE9F => self.oam[(addr - 0xFE00) as usize] = val,
-            0xFEA0..=0xFEFF => (),               //reserved
-            0xFF00 => (),                        //TODO: I/O Registers
-            0xFF01 => print!("{}", val as char), //serial read/write
-            0xFF02..=0xFF7F => (),               //TODO: I/O Registers
+            0xFEA0..=0xFEFF => (),                     //reserved
+            0xFF00 => (),                              //TODO: I/O Registers
+            0xFF01 => println!(">>> {}", val as char), //serial read/write
+            0xFF02..=0xFF7F => (),                     //TODO: I/O Registers
             0xFF80..=0xFFFE => self.high_ram[(addr - 0xFF80) as usize] = val,
             0xFFFF => (), //TODO: interrupt enable
         }
@@ -505,6 +517,13 @@ impl Cpu {
             0xBF => Instruction::CP(Par8::R8(Reg8::A)),
             0xFE => Instruction::CP(Par8::D8(self.load_pc_inc())),
 
+            0x07 => Instruction::RLC(Reg8::A),
+            0x17 => Instruction::RL(Reg8::A),
+            0x0F => Instruction::RRC(Reg8::A),
+            0x1F => Instruction::RR(Reg8::A),
+
+            0x2F => Instruction::CPL(),
+
             0x09 => Instruction::ADDr16(Reg16::BC),
             0x19 => Instruction::ADDr16(Reg16::DE),
             0x29 => Instruction::ADDr16(Reg16::HL),
@@ -683,11 +702,10 @@ impl Cpu {
             }
             Instruction::CP(p) => {
                 if self.reg_a == self.par8(*p) {
-                    self.reg_a = 0
+                    self.set_flags(true, true, false, false);
                 } else {
-                    self.reg_a = 1
+                    self.set_flags(true, true, false, false);
                 }
-                // TODO: flags
             }
 
             Instruction::AND(p) => {
@@ -711,6 +729,46 @@ impl Cpu {
                     self.reg_a = 0
                 }
             }
+
+            Instruction::RL(r) => {
+                let val = self.reg8(*r);
+                let shift = val << 1;
+                let ovfl = val > 0x80;
+                if ovfl {
+                    self.set_reg8(*r, shift | 0x01);
+                } else {
+                    self.set_reg8(*r, shift);
+                }
+            }
+            Instruction::RLC(r) => {
+                let val = self.reg8(*r);
+                let shift = val << 1;
+                let ovfl = val > 0x80;
+                self.set_reg8(*r, shift);
+                self.set_flags(false, false, ovfl, false);
+            }
+            Instruction::RR(r) => {
+                let val = self.reg8(*r);
+                let shift = val >> 1;
+                let ovfl = val & 0x01 != 0;
+                if ovfl {
+                    self.set_reg8(*r, shift | 0x01);
+                } else {
+                    self.set_reg8(*r, shift);
+                }
+            }
+            Instruction::RRC(r) => {
+                let val = self.reg8(*r);
+                let shift = val >> 1;
+                let ovfl = val & 0x01 != 0;
+                self.set_reg8(*r, shift);
+                self.set_flags(false, false, ovfl, false);
+            }
+
+            Instruction::CPL(r) => {
+                self.reg_a = !self.reg_a;
+            }
+
             Instruction::INC8(r) => {
                 self.set_reg8(*r, self.reg8(*r).wrapping_add(1))
                 // TODO: flags
