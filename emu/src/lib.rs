@@ -41,6 +41,8 @@ enum Par8 {
     R16(Reg16),
     //(a16) address pointed by value
     A16(u16),
+    //($FF00 + a8) high address pointed by value
+    A8(u8),
     //nn direct value
     D8(u8),
 }
@@ -50,6 +52,7 @@ impl fmt::Display for Par8 {
         match self {
             Par8::R8(r) => write!(f, "{}", r),
             Par8::R16(r) => write!(f, "({})", r),
+            Par8::A8(n) => write!(f, "($FF00+{})", n),
             Par8::A16(n) => write!(f, "({})", n),
             Par8::D8(n) => write!(f, "{}", n),
         }
@@ -279,6 +282,7 @@ impl Cpu {
             Par8::R8(r) => self.reg8(r),
             Par8::R16(r) => self.bus.load8(self.reg16(r)),
             Par8::A16(a) => self.bus.load8(a),
+            Par8::A8(a) => self.bus.load8(0xFF00 + (a as u16)),
             Par8::D8(d) => d,
         }
     }
@@ -287,6 +291,7 @@ impl Cpu {
             Par8::R8(r) => self.set_reg8(r, val),
             Par8::R16(r) => self.bus.store8(self.reg16(r), val),
             Par8::A16(a) => self.bus.store8(a, val),
+            Par8::A8(a) => self.bus.store8((0xFF00 + (a as u16)), val),
             Par8::D8(_d) => unimplemented!(), // should not happen
         }
     }
@@ -476,6 +481,9 @@ impl Cpu {
 
             0xEA => Instruction::LD(Par8::A16(self.load_pc_n16()), Par8::R8(Reg8::A)),
             0xFA => Instruction::LD(Par8::R8(Reg8::A), Par8::A16(self.load_pc_n16())),
+
+            0xE0 => Instruction::LD(Par8::A8(self.load_pc_inc()), Par8::R8(Reg8::A)),
+            0xE1 => Instruction::LD(Par8::R8(Reg8::A), Par8::A8(self.load_pc_inc())),
 
             0x01 => Instruction::LD16(Reg16::BC, self.load_pc_n16()),
             0x11 => Instruction::LD16(Reg16::DE, self.load_pc_n16()),
