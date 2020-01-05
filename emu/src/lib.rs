@@ -45,6 +45,11 @@ enum Par8 {
     A8(u8),
     //nn direct value
     D8(u8),
+
+    //HL+
+    HLI,
+    //HL-
+    HLD,
 }
 
 impl fmt::Display for Par8 {
@@ -55,6 +60,8 @@ impl fmt::Display for Par8 {
             Par8::A8(n) => write!(f, "($FF00+{})", n),
             Par8::A16(n) => write!(f, "({})", n),
             Par8::D8(n) => write!(f, "{}", n),
+            Par8::HLI => write!(f, "(HL+)"),
+            Par8::HLD => write!(f, "(HL-)"),
         }
     }
 }
@@ -284,13 +291,25 @@ impl Cpu {
         }
     }
 
-    fn par8(&self, p: Par8) -> u8 {
+    fn par8(&mut self, p: Par8) -> u8 {
         match p {
             Par8::R8(r) => self.reg8(r),
             Par8::R16(r) => self.bus.load8(self.reg16(r)),
             Par8::A16(a) => self.bus.load8(a),
             Par8::A8(a) => self.bus.load8(0xFF00 + (a as u16)),
             Par8::D8(d) => d,
+            Par8::HLI => {
+                let hl = self.reg16(Reg16::HL);
+                let val = self.bus.load8(hl);
+                self.set_reg16(Reg16::HL, hl + 1);
+                return val;
+            }
+            Par8::HLD => {
+                let hl = self.reg16(Reg16::HL);
+                let val = self.bus.load8(hl);
+                self.set_reg16(Reg16::HL, hl - 1);
+                return val;
+            }
         }
     }
     fn set_par8(&mut self, p: Par8, val: u8) {
@@ -298,8 +317,18 @@ impl Cpu {
             Par8::R8(r) => self.set_reg8(r, val),
             Par8::R16(r) => self.bus.store8(self.reg16(r), val),
             Par8::A16(a) => self.bus.store8(a, val),
-            Par8::A8(a) => self.bus.store8((0xFF00 + (a as u16)), val),
+            Par8::A8(a) => self.bus.store8(0xFF00 + (a as u16), val),
             Par8::D8(_d) => unimplemented!(), // should not happen
+            Par8::HLI => {
+                let hl = self.reg16(Reg16::HL);
+                self.bus.store8(hl, val);
+                self.set_reg16(Reg16::HL, hl + 1);
+            }
+            Par8::HLD => {
+                let hl = self.reg16(Reg16::HL);
+                self.bus.store8(hl, val);
+                self.set_reg16(Reg16::HL, hl - 1);
+            }
         }
     }
 
@@ -493,12 +522,17 @@ impl Cpu {
             0xFA => Instruction::LD(Par8::R8(Reg8::A), Par8::A16(self.load_pc_n16())),
 
             0xE0 => Instruction::LD(Par8::A8(self.load_pc_inc()), Par8::R8(Reg8::A)),
-            0xE1 => Instruction::LD(Par8::R8(Reg8::A), Par8::A8(self.load_pc_inc())),
+            0xF0 => Instruction::LD(Par8::R8(Reg8::A), Par8::A8(self.load_pc_inc())),
 
             0x01 => Instruction::LD16(Reg16::BC, self.load_pc_n16()),
             0x11 => Instruction::LD16(Reg16::DE, self.load_pc_n16()),
             0x21 => Instruction::LD16(Reg16::HL, self.load_pc_n16()),
             0x31 => Instruction::LD16(Reg16::SP, self.load_pc_n16()),
+
+            0x22 => Instruction::LD(Par8::HLI, Par8::R8(Reg8::A)),
+            0x32 => Instruction::LD(Par8::HLD, Par8::R8(Reg8::A)),
+            0x2A => Instruction::LD(Par8::R8(Reg8::A), Par8::HLI),
+            0x3A => Instruction::LD(Par8::R8(Reg8::A), Par8::HLD),
 
             0x06 => Instruction::LD(Par8::R8(Reg8::B), Par8::D8(self.load_pc_inc())),
             0x0E => Instruction::LD(Par8::R8(Reg8::C), Par8::D8(self.load_pc_inc())),
@@ -691,7 +725,8 @@ impl Cpu {
             }
 
             Instruction::LD(p1, p2) => {
-                self.set_par8(*p1, self.par8(*p2));
+                let v = self.par8(*p2);
+                self.set_par8(*p1, v);
             }
             Instruction::LD16(r16, n16) => {
                 self.set_reg16(*r16, *n16);
