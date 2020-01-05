@@ -107,6 +107,9 @@ enum Instruction {
     RET(),
     RETC(Cond),
 
+    DI(),
+    EI(),
+
     Nop(),
     Unimplemented(u8),
 }
@@ -140,6 +143,8 @@ impl fmt::Display for Instruction {
             Instruction::CALLC(c, n16) => write!(f, "CALL {},{}", c, n16),
             Instruction::RET() => write!(f, "RET"),
             Instruction::RETC(c) => write!(f, "RET {}", c),
+            Instruction::DI() => write!(f, "DI"),
+            Instruction::EI() => write!(f, "EI"),
             Instruction::Nop() => write!(f, "NOP"),
             Instruction::Unimplemented(op) => write!(f, "unimplemented {}", op),
         }
@@ -220,8 +225,10 @@ impl Bus {
             0xC000..=0xDFFF => self.int_ram[(addr - 0xC000) as usize] = val,
             0xE000..=0xFDFF => self.int_ram[(addr - 0xE000) as usize] = val, // mirror of int ram
             0xFE00..=0xFE9F => self.oam[(addr - 0xFE00) as usize] = val,
-            0xFEA0..=0xFEFF => (), //reserved
-            0xFF00..=0xFF7F => (), //TODO: I/O Registers
+            0xFEA0..=0xFEFF => (),               //reserved
+            0xFF00 => (),                        //TODO: I/O Registers
+            0xFF01 => print!("{}", val as char), //serial read/write
+            0xFF02..=0xFF7F => (),               //TODO: I/O Registers
             0xFF80..=0xFFFE => self.high_ram[(addr - 0xFF80) as usize] = val,
             0xFFFF => (), //TODO: interrupt enable
         }
@@ -359,6 +366,9 @@ impl Cpu {
         let opcode = self.load_pc_inc();
         return match opcode {
             0x00 => Instruction::Nop(),
+
+            0xF3 => Instruction::DI(),
+            0xFB => Instruction::EI(),
 
             0x03 => Instruction::INC16(Reg16::BC),
             0x13 => Instruction::INC16(Reg16::DE),
@@ -735,6 +745,9 @@ impl Cpu {
             }
 
             Instruction::Nop() => (),
+
+            Instruction::DI() => (), // TODO:
+            Instruction::EI() => (), // TODO:
 
             // not implemented
             Instruction::Unimplemented(_op) => (),
