@@ -77,8 +77,11 @@ enum Instruction {
     JPCn16(Cond, u16),
     JRCn8(Cond, u8),
 
-    Push(Reg16),
-    Pop(Reg16),
+    PUSH(Reg16),
+    POP(Reg16),
+
+    CALL(u16),
+    CALLC(Cond, u16),
 
     Nop(),
     Unimplemented(u8),
@@ -113,8 +116,10 @@ impl fmt::Display for Instruction {
             Instruction::JRn8(n8) => write!(f, "JR {}", n8),
             Instruction::JPCn16(c, n16) => write!(f, "JP {},{}", c, n16),
             Instruction::JRCn8(c, n8) => write!(f, "JR {},{}", c, n8),
-            Instruction::Push(r) => write!(f, "PUSH {}", r),
-            Instruction::Pop(r) => write!(f, "POP {}", r),
+            Instruction::PUSH(r) => write!(f, "PUSH {}", r),
+            Instruction::POP(r) => write!(f, "POP {}", r),
+            Instruction::CALL(n16) => write!(f, "CALL {}", n16),
+            Instruction::CALLC(c, n16) => write!(f, "CALL {},{}", c, n16),
             Instruction::Nop() => write!(f, "NOP"),
             Instruction::Unimplemented(op) => write!(f, "unimplemented {}", op),
         }
@@ -512,16 +517,20 @@ impl Cpu {
             0xCA => Instruction::JPCn16(Cond::Z, self.load_pc_n16()),
             0xD2 => Instruction::JPCn16(Cond::NC, self.load_pc_n16()),
             0xDA => Instruction::JPCn16(Cond::C, self.load_pc_n16()),
+            0xC1 => Instruction::POP(Reg16::BC),
+            0xD1 => Instruction::POP(Reg16::DE),
+            0xE1 => Instruction::POP(Reg16::HL),
+            0xF1 => Instruction::POP(Reg16::AF),
+            0xC5 => Instruction::PUSH(Reg16::BC),
+            0xD5 => Instruction::PUSH(Reg16::DE),
+            0xE5 => Instruction::PUSH(Reg16::HL),
+            0xF5 => Instruction::PUSH(Reg16::AF),
 
-            0xC1 => Instruction::Pop(Reg16::BC),
-            0xD1 => Instruction::Pop(Reg16::DE),
-            0xE1 => Instruction::Pop(Reg16::HL),
-            0xF1 => Instruction::Pop(Reg16::AF),
-
-            0xC5 => Instruction::Push(Reg16::BC),
-            0xD5 => Instruction::Push(Reg16::DE),
-            0xE5 => Instruction::Push(Reg16::HL),
-            0xF5 => Instruction::Push(Reg16::AF),
+            0xCD => Instruction::CALL(self.load_pc_n16()),
+            0xC4 => Instruction::CALLC(Cond::NZ, self.load_pc_n16()),
+            0xCC => Instruction::CALLC(Cond::Z, self.load_pc_n16()),
+            0xD4 => Instruction::CALLC(Cond::NC, self.load_pc_n16()),
+            0xDC => Instruction::CALLC(Cond::C, self.load_pc_n16()),
 
             _ => Instruction::Unimplemented(opcode),
         };
@@ -654,15 +663,29 @@ impl Cpu {
                 }
             }
 
-            Instruction::Push(r) => {
+            Instruction::PUSH(r) => {
                 let val = self.reg16(*r);
                 self.store16(self.reg_sp, val);
                 self.reg_sp = self.reg_sp.wrapping_sub(2);
             }
-            Instruction::Pop(r) => {
+            Instruction::POP(r) => {
                 let val = self.load16(self.reg_sp);
                 self.set_reg16(*r, val);
                 self.reg_sp = self.reg_sp.wrapping_add(2);
+            }
+            Instruction::CALL(n16) => {
+                //push pc
+                self.store16(self.reg_sp, self.reg_pc);
+                self.reg_sp = self.reg_sp.wrapping_sub(2);
+                // jump
+                self.reg_pc = *n16;
+            }
+            Instruction::CALLC(cond, n16) => {
+                if self.check(*cond) {
+                    self.store16(self.reg_sp, self.reg_pc);
+                    self.reg_sp = self.reg_sp.wrapping_sub(2);
+                    self.reg_pc = *n16;
+                }
             }
 
             Instruction::Nop() => (),
