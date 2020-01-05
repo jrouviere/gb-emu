@@ -88,10 +88,7 @@ enum Instruction {
     DEC16(Reg16),
 
     LD(Par8, Par8),
-
-    LDr16r8(Reg16, Reg8),
-    LDn16r8(u16, Reg8),
-    LDr16n16(Reg16, u16),
+    LD16(Reg16, u16),
 
     JPn16(u16),
     JRn8(u8),
@@ -129,9 +126,7 @@ impl fmt::Display for Instruction {
             Instruction::OR(r) => write!(f, "OR {}", r),
             Instruction::XOR(r) => write!(f, "XOR {}", r),
             Instruction::LD(r1, r2) => write!(f, "LD {},{}", r1, r2),
-            Instruction::LDr16r8(r16, r8) => write!(f, "LD ({}),{}", r16, r8),
-            Instruction::LDn16r8(n16, r8) => write!(f, "LD ({}),{}", n16, r8),
-            Instruction::LDr16n16(r16, n16) => write!(f, "LD {},{}", r16, n16),
+            Instruction::LD16(r16, n16) => write!(f, "LD {},{}", r16, n16),
             Instruction::JPn16(n16) => write!(f, "JP {}", n16),
             Instruction::JRn8(n8) => write!(f, "JR {}", n8),
             Instruction::JPCn16(c, n16) => write!(f, "JP {},{}", c, n16),
@@ -292,7 +287,7 @@ impl Cpu {
             Par8::R8(r) => self.set_reg8(r, val),
             Par8::R16(r) => self.bus.store8(self.reg16(r), val),
             Par8::A16(a) => self.bus.store8(a, val),
-            Par8::D8(d) => unimplemented!(),
+            Par8::D8(_d) => unimplemented!(), // should not happen
         }
     }
 
@@ -329,13 +324,6 @@ impl Cpu {
             | if carry { 0x10 } else { 0x00 };
     }
 
-    fn load8(&self, addr: u16) -> u8 {
-        self.bus.load8(addr)
-    }
-    fn store8(&mut self, addr: u16, val: u8) {
-        self.bus.store8(addr, val)
-    }
-
     fn load16(&self, addr: u16) -> u16 {
         let lsb = self.bus.load8(addr) as u16;
         let msb = self.bus.load8(addr + 1) as u16;
@@ -351,7 +339,7 @@ impl Cpu {
     }
 
     fn load_pc_inc(&mut self) -> u8 {
-        let data = self.load8(self.reg_pc);
+        let data = self.bus.load8(self.reg_pc);
         self.reg_pc = self.reg_pc.wrapping_add(1);
         data
     }
@@ -480,19 +468,19 @@ impl Cpu {
 
             0x36 => Instruction::LD(Par8::R16(Reg16::HL), Par8::D8(self.load_pc_inc())),
 
-            0x02 => Instruction::LDr16r8(Reg16::BC, Reg8::A),
-            0x12 => Instruction::LDr16r8(Reg16::DE, Reg8::A),
+            0x02 => Instruction::LD(Par8::R16(Reg16::BC), Par8::R8(Reg8::A)),
+            0x12 => Instruction::LD(Par8::R16(Reg16::DE), Par8::R8(Reg8::A)),
 
             0x0A => Instruction::LD(Par8::R8(Reg8::A), Par8::R16(Reg16::BC)),
             0x1A => Instruction::LD(Par8::R8(Reg8::A), Par8::R16(Reg16::DE)),
 
-            0xEA => Instruction::LDn16r8(self.load_pc_n16(), Reg8::A),
+            0xEA => Instruction::LD(Par8::A16(self.load_pc_n16()), Par8::R8(Reg8::A)),
             0xFA => Instruction::LD(Par8::R8(Reg8::A), Par8::A16(self.load_pc_n16())),
 
-            0x01 => Instruction::LDr16n16(Reg16::BC, self.load_pc_n16()),
-            0x11 => Instruction::LDr16n16(Reg16::DE, self.load_pc_n16()),
-            0x21 => Instruction::LDr16n16(Reg16::HL, self.load_pc_n16()),
-            0x31 => Instruction::LDr16n16(Reg16::SP, self.load_pc_n16()),
+            0x01 => Instruction::LD16(Reg16::BC, self.load_pc_n16()),
+            0x11 => Instruction::LD16(Reg16::DE, self.load_pc_n16()),
+            0x21 => Instruction::LD16(Reg16::HL, self.load_pc_n16()),
+            0x31 => Instruction::LD16(Reg16::SP, self.load_pc_n16()),
 
             0x06 => Instruction::LD(Par8::R8(Reg8::B), Par8::D8(self.load_pc_inc())),
             0x0E => Instruction::LD(Par8::R8(Reg8::C), Par8::D8(self.load_pc_inc())),
@@ -510,13 +498,13 @@ impl Cpu {
             0x6E => Instruction::LD(Par8::R8(Reg8::L), Par8::R16(Reg16::HL)),
             0x7E => Instruction::LD(Par8::R8(Reg8::A), Par8::R16(Reg16::HL)),
 
-            0x70 => Instruction::LDr16r8(Reg16::HL, Reg8::B),
-            0x71 => Instruction::LDr16r8(Reg16::HL, Reg8::C),
-            0x72 => Instruction::LDr16r8(Reg16::HL, Reg8::D),
-            0x73 => Instruction::LDr16r8(Reg16::HL, Reg8::E),
-            0x74 => Instruction::LDr16r8(Reg16::HL, Reg8::H),
-            0x75 => Instruction::LDr16r8(Reg16::HL, Reg8::L),
-            0x77 => Instruction::LDr16r8(Reg16::HL, Reg8::A),
+            0x70 => Instruction::LD(Par8::R16(Reg16::HL), Par8::R8(Reg8::B)),
+            0x71 => Instruction::LD(Par8::R16(Reg16::HL), Par8::R8(Reg8::C)),
+            0x72 => Instruction::LD(Par8::R16(Reg16::HL), Par8::R8(Reg8::D)),
+            0x73 => Instruction::LD(Par8::R16(Reg16::HL), Par8::R8(Reg8::E)),
+            0x74 => Instruction::LD(Par8::R16(Reg16::HL), Par8::R8(Reg8::H)),
+            0x75 => Instruction::LD(Par8::R16(Reg16::HL), Par8::R8(Reg8::L)),
+            0x77 => Instruction::LD(Par8::R16(Reg16::HL), Par8::R8(Reg8::A)),
 
             0x40 => Instruction::LD(Par8::R8(Reg8::B), Par8::R8(Reg8::B)),
             0x41 => Instruction::LD(Par8::R8(Reg8::B), Par8::R8(Reg8::C)),
@@ -687,16 +675,7 @@ impl Cpu {
             Instruction::LD(p1, p2) => {
                 self.set_par8(*p1, self.par8(*p2));
             }
-            Instruction::LDr16r8(r16, r8) => {
-                let addr = self.reg16(*r16);
-                let value = self.reg8(*r8);
-                self.store8(addr, value);
-            }
-            Instruction::LDn16r8(n16, r8) => {
-                let value = self.reg8(*r8);
-                self.store8(*n16, value);
-            }
-            Instruction::LDr16n16(r16, n16) => {
+            Instruction::LD16(r16, n16) => {
                 self.set_reg16(*r16, *n16);
             }
 
